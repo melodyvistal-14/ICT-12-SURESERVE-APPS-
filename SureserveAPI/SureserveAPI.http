@@ -1,0 +1,6 @@
+@SureserveAPI_HostAddress = http://localhost:5122
+
+GET {{SureserveAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
