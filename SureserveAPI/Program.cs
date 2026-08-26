@@ -6,13 +6,33 @@ using SureserveAPI.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database - Railway PostgreSQL
-var connectionString =
-    $"Host={Environment.GetEnvironmentVariable("PGHOST")};" +
-    $"Port={Environment.GetEnvironmentVariable("PGPORT")};" +
-    $"Database={Environment.GetEnvironmentVariable("PGDATABASE")};" +
-    $"Username={Environment.GetEnvironmentVariable("PGUSER")};" +
-    $"Password={Environment.GetEnvironmentVariable("PGPASSWORD")};";
+// Database - Railway PostgreSQL (supports DATABASE_URL fallback)
+var connectionString = "";
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrWhiteSpace(databaseUrl))
+{
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+    var npgsqlBuilder = new Npgsql.NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port,
+        Database = uri.AbsolutePath.TrimStart('/'),
+        Username = userInfo[0],
+        Password = userInfo.Length > 1 ? userInfo[1] : "",
+        SslMode = Npgsql.SslMode.Require,
+        TrustServerCertificate = true
+    };
+    connectionString = npgsqlBuilder.ConnectionString;
+}
+else
+{
+    connectionString = $"Host={Environment.GetEnvironmentVariable("PGHOST")};" +
+                     $"Port={Environment.GetEnvironmentVariable("PGPORT")};" +
+                     $"Database={Environment.GetEnvironmentVariable("PGDATABASE")};" +
+                     $"Username={Environment.GetEnvironmentVariable("PGUSER")};" +
+                     $"Password={Environment.GetEnvironmentVariable("PGPASSWORD")};";
+}
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
