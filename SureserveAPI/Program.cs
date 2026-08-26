@@ -6,13 +6,20 @@ using SureserveAPI.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database
+// Database - Railway PostgreSQL
+var connectionString =
+    $"Host={Environment.GetEnvironmentVariable("PGHOST")};" +
+    $"Port={Environment.GetEnvironmentVariable("PGPORT")};" +
+    $"Database={Environment.GetEnvironmentVariable("PGDATABASE")};" +
+    $"Username={Environment.GetEnvironmentVariable("PGUSER")};" +
+    $"Password={Environment.GetEnvironmentVariable("PGPASSWORD")};";
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -26,8 +33,10 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
+
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
+
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!))
     };
