@@ -24,5 +24,7 @@
     </PackageReference>
 
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+
+    <PackageReference Include="WebPush" Version="1.0.11" />
   </ItemGroup>
 </Project>

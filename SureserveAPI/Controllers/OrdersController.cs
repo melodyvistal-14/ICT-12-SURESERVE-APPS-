@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SureserveAPI.Data;
 using SureserveAPI.Models;
+using SureserveAPI.Services;
 using System.Security.Claims;
 
 namespace SureserveAPI.Controllers;
@@ -13,10 +14,12 @@ namespace SureserveAPI.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly PushNotificationService _push;
 
-    public OrdersController(AppDbContext context)
+    public OrdersController(AppDbContext context, PushNotificationService push)
     {
         _context = context;
+        _push = push;
     }
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -162,6 +165,20 @@ public class OrdersController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        // Notify all vendors about the new order
+        var vendorSubs = _context.PushSubscriptions
+            .Where(ps => _context.Users.Any(u => u.Id == ps.UserId && u.Role == "Vendor"))
+            .ToList();
+
+        foreach (var sub in vendorSubs)
+        {
+            _ = _push.SendNotificationAsync(
+                sub.Endpoint, sub.P256dh, sub.Auth,
+                "🛒 New Order Received!",
+                $"Order {orderNumber} just came in. Tap to view."
+            );
+        }
+
         return Ok(new
         {
             message = "Order placed! The vendor has been notified. Please proceed to the canteen to pick up and pay.",
@@ -194,14 +211,31 @@ public class OrdersController : ControllerBase
         order.Status = request.Status;
         await _context.SaveChangesAsync();
 
+        // Notify the student who placed the order
+        var studentSub = _context.PushSubscriptions
+            .FirstOrDefault(ps => ps.UserId == order.UserId);
+
+        if (studentSub != null)
+        {
+            var (notifTitle, notifBody) = request.Status switch
+            {
+                "Preparing" => ("🍳 Order Being Prepared!", $"Your order {order.OrderNumber} is now being prepared!"),
+                "Ready"     => ("✅ Order Ready for Pickup!", $"Your order {order.OrderNumber} is ready! Go to the canteen."),
+                "Completed" => ("🎉 Order Completed!", $"Your order {order.OrderNumber} is done. Thank you!"),
+                "Cancelled" => ("❌ Order Cancelled", $"Your order {order.OrderNumber} has been cancelled."),
+                _           => ("📦 Order Update", $"Order {order.OrderNumber} is now {request.Status}.")
+            };
+            _ = _push.SendNotificationAsync(studentSub.Endpoint, studentSub.P256dh, studentSub.Auth, notifTitle, notifBody);
+        }
+
         // Status messages for the student
         var statusMessage = request.Status switch
         {
             "Preparing" => $"Your order {order.OrderNumber} is now being prepared!",
-            "Ready" => $"Your order {order.OrderNumber} is ready! Please go to the canteen to pick up and pay.",
+            "Ready"     => $"Your order {order.OrderNumber} is ready! Please go to the canteen to pick up and pay.",
             "Completed" => $"Your order {order.OrderNumber} has been completed. Thank you!",
             "Cancelled" => $"Your order {order.OrderNumber} has been cancelled.",
-            _ => $"Order status updated to {request.Status}."
+            _           => $"Order status updated to {request.Status}."
         };
 
         return Ok(new

@@ -77,6 +77,7 @@ builder.Services.AddCors(options =>
 
 // Controllers
 builder.Services.AddControllers();
+builder.Services.AddSingleton<SureserveAPI.Services.PushNotificationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

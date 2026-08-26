@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<VendorPasskey> VendorPasskeys => Set<VendorPasskey>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +102,13 @@ public class AppDbContext : DbContext
             .HasOne(r => r.MenuItem)
             .WithMany(mi => mi.Reviews)
             .HasForeignKey(r => r.MenuItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // User - PushSubscriptions (1:N)
+        modelBuilder.Entity<PushSubscription>()
+            .HasOne(ps => ps.User)
+            .WithMany()
+            .HasForeignKey(ps => ps.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // Unique constraints
