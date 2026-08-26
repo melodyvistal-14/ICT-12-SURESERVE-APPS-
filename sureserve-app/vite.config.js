@@ -37,19 +37,12 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifestOptions: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https?.*\/api\/.*/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-            },
-          },
-        ],
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module',
       },
     }),
   ],

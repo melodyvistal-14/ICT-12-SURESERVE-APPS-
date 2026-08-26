@@ -11,9 +11,13 @@ import {
   IoClose,
   IoStorefront,
   IoRestaurant,
-  IoChevronForward
+  IoChevronForward,
+  IoNotifications,
+  IoCheckmarkCircle,
+  IoAlertCircle
 } from 'react-icons/io5';
 import api from '../services/api';
+import { registerPushNotifications, sendTestNotification, getNotificationPermission } from '../services/notifications';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
@@ -32,9 +36,43 @@ export default function ProfilePage() {
   });
   const [saving, setSaving] = useState(false);
 
+  // Notification State
+  const [notifPermission, setNotifPermission] = useState('default');
+  const [enablingNotif, setEnablingNotif] = useState(false);
+  const [testingNotif, setTestingNotif] = useState(false);
+  const [notifMessage, setNotifMessage] = useState('');
+
   useEffect(() => {
     loadProfile();
+    getNotificationPermission().then(setNotifPermission);
   }, []);
+
+  const handleEnableNotifications = async () => {
+    setEnablingNotif(true);
+    setNotifMessage('');
+    const success = await registerPushNotifications();
+    const perm = await getNotificationPermission();
+    setNotifPermission(perm);
+    if (success) {
+      setNotifMessage('✅ Notifications enabled! You will now receive order updates.');
+    } else if (perm === 'denied') {
+      setNotifMessage('❌ Notifications blocked. Go to your browser/app settings to allow them.');
+    } else {
+      setNotifMessage('⚠️ Could not enable notifications. Try again.');
+    }
+    setEnablingNotif(false);
+  };
+
+  const handleTestNotification = async () => {
+    setTestingNotif(true);
+    try {
+      await sendTestNotification();
+      setNotifMessage('🔔 Test notification sent! Check your notification panel.');
+    } catch (e) {
+      setNotifMessage('❌ Failed to send test: ' + e.message);
+    }
+    setTestingNotif(false);
+  };
 
   const loadProfile = async () => {
     try {
@@ -291,6 +329,97 @@ export default function ProfilePage() {
             <span style={{ fontSize: 14, fontWeight: 600 }}>{item.value}</span>
           </div>
         ))}
+      </div>
+
+      {/* Notifications Card */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1.5px solid #DBEAFE',
+          padding: '20px',
+          marginBottom: '20px',
+          boxShadow: '0 4px 14px rgba(37, 99, 235, 0.06)',
+        }}
+      >
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+          <IoNotifications size={20} color="#2563EB" />
+          Push Notifications
+        </h3>
+
+        {/* Permission Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 14px', background: '#FFFFFF', borderRadius: 10, border: '1px solid #E2E8F0' }}>
+          {notifPermission === 'granted'
+            ? <IoCheckmarkCircle size={20} color="#15803D" />
+            : <IoAlertCircle size={20} color="#D97706" />
+          }
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Status</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: notifPermission === 'granted' ? '#15803D' : '#D97706' }}>
+              {notifPermission === 'granted' ? 'Enabled ✓' : notifPermission === 'denied' ? 'Blocked ✗' : 'Not Enabled'}
+            </div>
+          </div>
+        </div>
+
+        {/* Feedback message */}
+        {notifMessage && (
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, padding: '8px 12px', background: '#F8FAFC', borderRadius: 8, lineHeight: 1.5 }}>
+            {notifMessage}
+          </p>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          {notifPermission !== 'granted' && notifPermission !== 'denied' && (
+            <button
+              onClick={handleEnableNotifications}
+              disabled={enablingNotif}
+              style={{
+                flex: 1,
+                background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '10px 14px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+              }}
+            >
+              <IoNotifications size={16} />
+              {enablingNotif ? 'Enabling...' : 'Enable Notifications'}
+            </button>
+          )}
+          {notifPermission === 'granted' && (
+            <button
+              onClick={handleTestNotification}
+              disabled={testingNotif}
+              style={{
+                flex: 1,
+                background: 'linear-gradient(135deg, #15803D, #166534)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '10px 14px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+              }}
+            >
+              🔔 {testingNotif ? 'Sending...' : 'Send Test Notification'}
+            </button>
+          )}
+          {notifPermission === 'denied' && (
+            <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>Notifications are blocked. Open your browser settings and allow notifications for this site, then refresh.</p>
+          )}
+        </div>
       </div>
 
       {/* Logout Button */}
