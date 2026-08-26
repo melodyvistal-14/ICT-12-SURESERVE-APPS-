@@ -46,6 +46,18 @@ public static class DbSeeder
                     ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
             ");
+
+            context.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""PushSubscriptions"" (
+                    ""Id"" SERIAL PRIMARY KEY,
+                    ""UserId"" integer NOT NULL,
+                    ""Endpoint"" text NOT NULL,
+                    ""P256dh"" varchar(255) NOT NULL,
+                    ""Auth"" varchar(255) NOT NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT ""FK_PushSubscriptions_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+                );
+            ");
         }
         catch
         {

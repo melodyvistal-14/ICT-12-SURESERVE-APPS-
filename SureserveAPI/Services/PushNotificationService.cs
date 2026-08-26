@@ -1,44 +1,75 @@
+using Microsoft.EntityFrameworkCore;
+using SureserveAPI.Data;
 using WebPush;
+using System.Text.Json;
 
 namespace SureserveAPI.Services;
 
 public class PushNotificationService
 {
-    private readonly string _vapidPublicKey;
-    private readonly string _vapidPrivateKey;
-    private readonly string _vapidSubject;
+    private readonly AppDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public PushNotificationService(IConfiguration config)
+    public PushNotificationService(AppDbContext context, IConfiguration configuration)
     {
-        _vapidPublicKey = config["Vapid:PublicKey"] ?? "";
-        _vapidPrivateKey = config["Vapid:PrivateKey"] ?? "";
-        _vapidSubject = config["Vapid:Subject"] ?? "mailto:admin@sureserve.edu";
+        _context = context;
+        _configuration = configuration;
     }
 
-    public async Task SendNotificationAsync(string endpoint, string p256dh, string auth, string title, string body, string? icon = null)
+    public async Task SendNotificationAsync(int userId, string title, string body, string? url = null)
     {
-        if (string.IsNullOrWhiteSpace(_vapidPublicKey) || string.IsNullOrWhiteSpace(_vapidPrivateKey))
-            return;
+        var subscriptions = await _context.PushSubscriptions
+            .Where(s => s.UserId == userId)
+            .ToListAsync();
 
-        try
+        if (!subscriptions.Any()) return;
+
+        // Get VAPID Keys from settings
+        var publicKeySetting = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == "VapidPublicKey");
+        var privateKeySetting = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == "VapidPrivateKey");
+
+        if (publicKeySetting == null || privateKeySetting == null)
         {
-            var subscription = new PushSubscription(endpoint, p256dh, auth);
-            var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
-            var client = new WebPushClient();
-
-            var payload = System.Text.Json.JsonSerializer.Serialize(new
+            // Generate and save keys if not present
+            var keys = VapidHelper.GenerateVapidKeys();
+            
+            if (publicKeySetting == null)
             {
-                title,
-                body,
-                icon = icon ?? "/icon-192.png",
-                badge = "/icon-192.png"
-            });
+                publicKeySetting = new Models.SystemSetting { Key = "VapidPublicKey", Value = keys.PublicKey, UpdatedAt = DateTime.UtcNow };
+                _context.SystemSettings.Add(publicKeySetting);
+            }
+            if (privateKeySetting == null)
+            {
+                privateKeySetting = new Models.SystemSetting { Key = "VapidPrivateKey", Value = keys.PrivateKey, UpdatedAt = DateTime.UtcNow };
+                _context.SystemSettings.Add(privateKeySetting);
+            }
+            await _context.SaveChangesAsync();
+        }
 
-            await client.SendNotificationAsync(subscription, payload, vapidDetails);
-        }
-        catch (Exception ex)
+        var subject = _configuration["JwtSettings:Issuer"] ?? "mailto:admin@sureserve.edu";
+        var vapidDetails = new VapidDetails(subject, publicKeySetting.Value, privateKeySetting.Value);
+        var webPushClient = new WebPushClient();
+
+        var payloadObj = new { title, body, url = url ?? "/" };
+        var payload = JsonSerializer.Serialize(payloadObj);
+
+        foreach (var sub in subscriptions)
         {
-            Console.WriteLine($"[PushNotification] Failed to send: {ex.Message}");
+            try
+            {
+                var pushSubscription = new WebPush.PushSubscription(sub.Endpoint, sub.P256dh, sub.Auth);
+                await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+            }
+            catch (WebPushException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Gone || ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Subscription is no longer valid, delete it
+                _context.PushSubscriptions.Remove(sub);
+            }
+            catch (Exception)
+            {
+                // Log or ignore other errors to avoid blocking
+            }
         }
+        await _context.SaveChangesAsync();
     }
 }

@@ -1,87 +1,92 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SureserveAPI.Data;
-using SureserveAPI.Services;
+using SureserveAPI.Models;
 using System.Security.Claims;
 
 namespace SureserveAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class NotificationsController : ControllerBase
 {
     private readonly AppDbContext _context;
-    private readonly IConfiguration _config;
 
-    public NotificationsController(AppDbContext context, IConfiguration config)
+    public NotificationsController(AppDbContext context)
     {
         _context = context;
-        _config = config;
     }
 
-    /// <summary>
-    /// Returns the VAPID public key so the frontend can subscribe.
-    /// </summary>
+    private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     [HttpGet("vapid-public-key")]
-    public IActionResult GetVapidPublicKey()
+    [AllowAnonymous]
+    public async Task<IActionResult> GetVapidPublicKey()
     {
-        var key = _config["Vapid:PublicKey"] ?? "";
-        return Ok(new { publicKey = key });
+        var publicKeySetting = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == "VapidPublicKey");
+        if (publicKeySetting == null)
+        {
+            var keys = WebPush.VapidHelper.GenerateVapidKeys();
+            publicKeySetting = new SystemSetting { Key = "VapidPublicKey", Value = keys.PublicKey, UpdatedAt = DateTime.UtcNow };
+            var privateKeySetting = new SystemSetting { Key = "VapidPrivateKey", Value = keys.PrivateKey, UpdatedAt = DateTime.UtcNow };
+            _context.SystemSettings.AddRange(publicKeySetting, privateKeySetting);
+            await _context.SaveChangesAsync();
+        }
+        return Ok(new { publicKey = publicKeySetting.Value });
     }
 
-    /// <summary>
-    /// Save or update the logged-in user's push subscription.
-    /// </summary>
     [HttpPost("subscribe")]
-    [Authorize]
-    public async Task<IActionResult> Subscribe([FromBody] SubscribeRequest request)
+    public async Task<IActionResult> Subscribe([FromBody] SubscriptionRequest request)
     {
-        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var userId = GetUserId();
 
-        var existing = _context.PushSubscriptions
-            .FirstOrDefault(ps => ps.UserId == userId);
+        // Check if subscription already exists for this endpoint
+        var existing = await _context.PushSubscriptions
+            .FirstOrDefaultAsync(s => s.Endpoint == request.Endpoint && s.UserId == userId);
 
-        if (existing != null)
+        if (existing == null)
         {
-            existing.Endpoint = request.Endpoint;
-            existing.P256dh = request.P256dh;
-            existing.Auth = request.Auth;
-            existing.UpdatedAt = DateTime.UtcNow;
-        }
-        else
-        {
-            _context.PushSubscriptions.Add(new Models.PushSubscription
+            var sub = new PushSubscription
             {
                 UserId = userId,
                 Endpoint = request.Endpoint,
                 P256dh = request.P256dh,
-                Auth = request.Auth,
-                UpdatedAt = DateTime.UtcNow
-            });
+                Auth = request.Auth
+            };
+            _context.PushSubscriptions.Add(sub);
+            await _context.SaveChangesAsync();
         }
 
-        await _context.SaveChangesAsync();
-        return Ok(new { message = "Subscribed to push notifications." });
+        return Ok(new { message = "Subscribed successfully." });
     }
 
-    /// <summary>
-    /// Remove subscription on logout.
-    /// </summary>
-    [HttpDelete("unsubscribe")]
-    [Authorize]
-    public async Task<IActionResult> Unsubscribe()
+    [HttpPost("unsubscribe")]
+    public async Task<IActionResult> Unsubscribe([FromBody] UnsubscribeRequest request)
     {
-        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var subs = _context.PushSubscriptions.Where(ps => ps.UserId == userId).ToList();
-        _context.PushSubscriptions.RemoveRange(subs);
-        await _context.SaveChangesAsync();
-        return Ok(new { message = "Unsubscribed." });
+        var userId = GetUserId();
+        var existing = await _context.PushSubscriptions
+            .FirstOrDefaultAsync(s => s.Endpoint == request.Endpoint && s.UserId == userId);
+
+        if (existing != null)
+        {
+            _context.PushSubscriptions.Remove(existing);
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok(new { message = "Unsubscribed successfully." });
     }
 }
 
-public class SubscribeRequest
+public class SubscriptionRequest
 {
     public string Endpoint { get; set; } = string.Empty;
     public string P256dh { get; set; } = string.Empty;
     public string Auth { get; set; } = string.Empty;
+}
+
+public class UnsubscribeRequest
+{
+    public string Endpoint { get; set; } = string.Empty;
 }

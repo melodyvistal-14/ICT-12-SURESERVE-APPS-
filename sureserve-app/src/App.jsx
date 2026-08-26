@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { registerPushNotifications } from './services/notifications';
 import BottomNav from './components/BottomNav';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -46,6 +48,12 @@ function AdminRoute({ children }) {
 function AppRoutes() {
   const { isAuthenticated, isVendor, isAdmin } = useAuth();
   const defaultRedirect = isAdmin ? '/admin' : (isVendor ? '/vendor' : '/');
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      registerPushNotifications();
+    }
+  }, [isAuthenticated]);
 
   return (
     <>

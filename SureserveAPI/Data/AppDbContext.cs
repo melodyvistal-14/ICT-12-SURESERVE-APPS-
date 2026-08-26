@@ -104,13 +104,6 @@ public class AppDbContext : DbContext
             .HasForeignKey(r => r.MenuItemId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // User - PushSubscriptions (1:N)
-        modelBuilder.Entity<PushSubscription>()
-            .HasOne(ps => ps.User)
-            .WithMany()
-            .HasForeignKey(ps => ps.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
-
         // Unique constraints
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Username)
@@ -123,6 +116,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Order>()
             .HasIndex(o => o.OrderNumber)
             .IsUnique();
+
+        // User - PushSubscriptions (1:N)
+        modelBuilder.Entity<PushSubscription>()
+            .HasOne(ps => ps.User)
+            .WithMany()
+            .HasForeignKey(ps => ps.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Seed default categories
         modelBuilder.Entity<Category>().HasData(

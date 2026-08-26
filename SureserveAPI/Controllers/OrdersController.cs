@@ -14,12 +14,12 @@ namespace SureserveAPI.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly AppDbContext _context;
-    private readonly PushNotificationService _push;
+    private readonly PushNotificationService _pushNotificationService;
 
-    public OrdersController(AppDbContext context, PushNotificationService push)
+    public OrdersController(AppDbContext context, PushNotificationService pushNotificationService)
     {
         _context = context;
-        _push = push;
+        _pushNotificationService = pushNotificationService;
     }
 
     private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -165,19 +165,40 @@ public class OrdersController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        // Notify all vendors about the new order
-        var vendorSubs = _context.PushSubscriptions
-            .Where(ps => _context.Users.Any(u => u.Id == ps.UserId && u.Role == "Vendor"))
-            .ToList();
-
-        foreach (var sub in vendorSubs)
+        // Notify the vendor(s) about the new order in background
+        _ = Task.Run(async () =>
         {
-            _ = _push.SendNotificationAsync(
-                sub.Endpoint, sub.P256dh, sub.Auth,
-                "🛒 New Order Received!",
-                $"Order {orderNumber} just came in. Tap to view."
-            );
-        }
+            try
+            {
+                var vendorIds = cartItems.Select(ci => ci.MenuItem.VendorProfileId).Distinct().ToList();
+                using (var scope = HttpContext.RequestServices.CreateScope())
+                {
+                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var push = scope.ServiceProvider.GetRequiredService<PushNotificationService>();
+                    foreach (var vProfileId in vendorIds)
+                    {
+                        var vendorUserId = await db.VendorProfiles
+                            .Where(vp => vp.Id == vProfileId)
+                            .Select(vp => vp.UserId)
+                            .FirstOrDefaultAsync();
+
+                        if (vendorUserId != 0)
+                        {
+                            await push.SendNotificationAsync(
+                                vendorUserId,
+                                "New Order Placed! 🍔",
+                                $"Order {orderNumber} has been received for pick up.",
+                                "/vendor/orders"
+                            );
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Suppress background task errors
+            }
+        });
 
         return Ok(new
         {
@@ -211,32 +232,37 @@ public class OrdersController : ControllerBase
         order.Status = request.Status;
         await _context.SaveChangesAsync();
 
-        // Notify the student who placed the order
-        var studentSub = _context.PushSubscriptions
-            .FirstOrDefault(ps => ps.UserId == order.UserId);
-
-        if (studentSub != null)
-        {
-            var (notifTitle, notifBody) = request.Status switch
-            {
-                "Preparing" => ("🍳 Order Being Prepared!", $"Your order {order.OrderNumber} is now being prepared!"),
-                "Ready"     => ("✅ Order Ready for Pickup!", $"Your order {order.OrderNumber} is ready! Go to the canteen."),
-                "Completed" => ("🎉 Order Completed!", $"Your order {order.OrderNumber} is done. Thank you!"),
-                "Cancelled" => ("❌ Order Cancelled", $"Your order {order.OrderNumber} has been cancelled."),
-                _           => ("📦 Order Update", $"Order {order.OrderNumber} is now {request.Status}.")
-            };
-            _ = _push.SendNotificationAsync(studentSub.Endpoint, studentSub.P256dh, studentSub.Auth, notifTitle, notifBody);
-        }
-
         // Status messages for the student
         var statusMessage = request.Status switch
         {
             "Preparing" => $"Your order {order.OrderNumber} is now being prepared!",
-            "Ready"     => $"Your order {order.OrderNumber} is ready! Please go to the canteen to pick up and pay.",
+            "Ready" => $"Your order {order.OrderNumber} is ready! Please go to the canteen to pick up and pay.",
             "Completed" => $"Your order {order.OrderNumber} has been completed. Thank you!",
             "Cancelled" => $"Your order {order.OrderNumber} has been cancelled.",
-            _           => $"Order status updated to {request.Status}."
+            _ => $"Order status updated to {request.Status}."
         };
+
+        // Notify the student about the order status in background
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using (var scope = HttpContext.RequestServices.CreateScope())
+                {
+                    var push = scope.ServiceProvider.GetRequiredService<PushNotificationService>();
+                    await push.SendNotificationAsync(
+                        order.UserId,
+                        "Order Status Update! 🍕",
+                        statusMessage,
+                        "/orders"
+                    );
+                }
+            }
+            catch
+            {
+                // Suppress background task errors
+            }
+        });
 
         return Ok(new
         {

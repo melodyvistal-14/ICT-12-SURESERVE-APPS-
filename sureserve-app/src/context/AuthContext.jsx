@@ -1,5 +1,4 @@
-import { createContext, useContext, useState } from 'react';
-import { registerPushNotifications, unregisterPushNotifications } from '../services/pushNotifications';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
@@ -15,13 +14,9 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', tokenValue);
     setUser(userData);
     setToken(tokenValue);
-    // Register for push notifications after login (non-blocking)
-    setTimeout(() => registerPushNotifications(), 1000);
   };
 
   const logout = () => {
-    // Unregister push before clearing credentials
-    unregisterPushNotifications().catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setUser(null);
