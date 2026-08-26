@@ -170,33 +170,35 @@ public class OrdersController : ControllerBase
         {
             try
             {
-                var vendorIds = cartItems.Select(ci => ci.MenuItem.VendorProfileId).Distinct().ToList();
-                using (var scope = HttpContext.RequestServices.CreateScope())
-                {
-                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    var push = scope.ServiceProvider.GetRequiredService<PushNotificationService>();
-                    foreach (var vProfileId in vendorIds)
-                    {
-                        var vendorUserId = await db.VendorProfiles
-                            .Where(vp => vp.Id == vProfileId)
-                            .Select(vp => vp.UserId)
-                            .FirstOrDefaultAsync();
+                // Reload vendor IDs from captured data (cartItems are in memory)
+                var vendorProfileIds = cartItems.Select(ci => ci.MenuItem.VendorProfileId).Distinct().ToList();
 
-                        if (vendorUserId != 0)
-                        {
-                            await push.SendNotificationAsync(
-                                vendorUserId,
-                                "New Order Placed! 🍔",
-                                $"Order {orderNumber} has been received for pick up.",
-                                "/vendor/orders"
-                            );
-                        }
+                // We need a fresh DB scope to look up vendor user IDs
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                foreach (var vProfileId in vendorProfileIds)
+                {
+                    var vendorUserId = await db.VendorProfiles
+                        .Where(vp => vp.Id == vProfileId)
+                        .Select(vp => vp.UserId)
+                        .FirstOrDefaultAsync();
+
+                    if (vendorUserId != 0)
+                    {
+                        await _pushNotificationService.SendNotificationAsync(
+                            vendorUserId,
+                            "🛎️ New Order Received!",
+                            $"Order {orderNumber} is waiting for your confirmation.",
+                            "/vendor/orders"
+                        );
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Suppress background task errors
+                // Log but don't crash
+                Console.WriteLine($"[PushNotif Error - Checkout] {ex.Message}");
             }
         });
 
@@ -247,20 +249,16 @@ public class OrdersController : ControllerBase
         {
             try
             {
-                using (var scope = HttpContext.RequestServices.CreateScope())
-                {
-                    var push = scope.ServiceProvider.GetRequiredService<PushNotificationService>();
-                    await push.SendNotificationAsync(
-                        order.UserId,
-                        "Order Status Update! 🍕",
-                        statusMessage,
-                        "/orders"
-                    );
-                }
+                await _pushNotificationService.SendNotificationAsync(
+                    order.UserId,
+                    "📦 Order Status Update",
+                    statusMessage,
+                    "/orders"
+                );
             }
-            catch
+            catch (Exception ex)
             {
-                // Suppress background task errors
+                Console.WriteLine($"[PushNotif Error - Status] {ex.Message}");
             }
         });
 
