@@ -214,11 +214,17 @@ public class MenuItemsController : ControllerBase
             menuItem.Stock = request.Stock.Value;
             if (menuItem.Stock == 0)
             {
+                // Auto-mark unavailable when stock hits 0
                 menuItem.IsAvailable = false;
             }
-            else if (menuItem.Stock > 0 && !request.IsAvailable.HasValue)
+            else if (menuItem.Stock > 0)
             {
-                menuItem.IsAvailable = true;
+                // Auto-restore availability when restocking,
+                // unless the caller explicitly set isAvailable = false
+                if (!request.IsAvailable.HasValue || request.IsAvailable.Value)
+                {
+                    menuItem.IsAvailable = true;
+                }
             }
         }
 
