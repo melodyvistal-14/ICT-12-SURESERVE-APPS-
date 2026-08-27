@@ -77,6 +77,28 @@ public class NotificationsController : ControllerBase
 
         return Ok(new { message = "Unsubscribed successfully." });
     }
+
+    [HttpGet("debug")]
+    [AllowAnonymous]
+    public async Task<IActionResult> DebugSubscriptions()
+    {
+        var subscriptions = await _context.PushSubscriptions
+            .Select(s => new { s.Id, s.UserId, EndpointPrefix = s.Endpoint.Substring(0, Math.Min(30, s.Endpoint.Length)) + "...", s.CreatedAt })
+            .ToListAsync();
+
+        var vapidPublicKey = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == "VapidPublicKey");
+        var vapidPrivateKey = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == "VapidPrivateKey");
+
+        var users = await _context.Users.Select(u => new { u.Id, u.Username, u.Role }).ToListAsync();
+
+        return Ok(new
+        {
+            TotalSubscriptions = subscriptions.Count,
+            Subscriptions = subscriptions,
+            VapidKeysExist = vapidPublicKey != null && vapidPrivateKey != null,
+            Users = users
+        });
+    }
 }
 
 public class SubscriptionRequest
