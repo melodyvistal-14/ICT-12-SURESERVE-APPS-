@@ -14,7 +14,8 @@ import {
   IoChevronForward,
   IoNotifications,
   IoCheckmarkCircle,
-  IoAlertCircle
+  IoAlertCircle,
+  IoBug
 } from 'react-icons/io5';
 import api from '../services/api';
 import { registerPushNotifications, sendTestNotification, getNotificationPermission } from '../services/notifications';
@@ -72,6 +73,15 @@ export default function ProfilePage() {
       setNotifMessage('❌ Failed to send test: ' + e.message);
     }
     setTestingNotif(false);
+  };
+
+  const handleDebugAPI = async () => {
+    try {
+      const res = await api.get('/notifications/debug');
+      alert('Debug Info:\n\n' + JSON.stringify(res.data, null, 2));
+    } catch (e) {
+      alert('Debug failed: ' + e.message);
+    }
   };
 
   const loadProfile = async () => {
@@ -420,6 +430,28 @@ export default function ProfilePage() {
             <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>Notifications are blocked. Open your browser settings and allow notifications for this site, then refresh.</p>
           )}
         </div>
+        
+        <button
+          onClick={handleDebugAPI}
+          style={{
+            marginTop: 10,
+            width: '100%',
+            background: '#F1F5F9',
+            color: '#475569',
+            border: '1px solid #CBD5E1',
+            borderRadius: 10,
+            padding: '8px 14px',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}
+        >
+          <IoBug size={14} /> View Debug Info
+        </button>
       </div>
 
       {/* Logout Button */}
