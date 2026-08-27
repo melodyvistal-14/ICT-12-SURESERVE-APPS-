@@ -165,40 +165,36 @@ public class OrdersController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        // Notify the vendor(s) about the new order in background
+        // 1. Fetch vendor User IDs BEFORE the background task (fixes HttpContext disposed error)
+        var vendorProfileIds = cartItems.Select(ci => ci.MenuItem.VendorProfileId).Distinct().ToList();
+        var vendorUserIds = await _context.VendorProfiles
+            .Where(vp => vendorProfileIds.Contains(vp.Id))
+            .Select(vp => vp.UserId)
+            .ToListAsync();
+
+        var timeString = DateTime.Now.ToString("h:mm tt");
+
+        // 2. Notify the vendor(s) about the new order in background
         _ = Task.Run(async () =>
         {
-            try
+            foreach (var vendorUserId in vendorUserIds)
             {
-                // Reload vendor IDs from captured data (cartItems are in memory)
-                var vendorProfileIds = cartItems.Select(ci => ci.MenuItem.VendorProfileId).Distinct().ToList();
-
-                // We need a fresh DB scope to look up vendor user IDs
-                using var scope = HttpContext.RequestServices.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                foreach (var vProfileId in vendorProfileIds)
+                if (vendorUserId != 0)
                 {
-                    var vendorUserId = await db.VendorProfiles
-                        .Where(vp => vp.Id == vProfileId)
-                        .Select(vp => vp.UserId)
-                        .FirstOrDefaultAsync();
-
-                    if (vendorUserId != 0)
+                    try
                     {
                         await _pushNotificationService.SendNotificationAsync(
                             vendorUserId,
                             "🛎️ New Order Received!",
-                            $"Order {orderNumber} is waiting for your confirmation.",
+                            $"Order {orderNumber} is waiting for your confirmation. ({timeString})",
                             "/vendor/orders"
                         );
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[PushNotif Error - Checkout] {ex.Message}");
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                // Log but don't crash
-                Console.WriteLine($"[PushNotif Error - Checkout] {ex.Message}");
             }
         });
 
@@ -244,6 +240,9 @@ public class OrdersController : ControllerBase
             _ => $"Order status updated to {request.Status}."
         };
 
+        var timeString = DateTime.Now.ToString("h:mm tt");
+        var bodyMessage = $"{statusMessage} ({timeString})";
+
         // Notify the student about the order status in background
         _ = Task.Run(async () =>
         {
@@ -252,7 +251,7 @@ public class OrdersController : ControllerBase
                 await _pushNotificationService.SendNotificationAsync(
                     order.UserId,
                     "📦 Order Status Update",
-                    statusMessage,
+                    bodyMessage,
                     "/orders"
                 );
             }
