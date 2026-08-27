@@ -11,6 +11,7 @@ import {
   IoClose,
   IoStorefront,
   IoRestaurant,
+  IoChevronForward,
   IoNotifications,
   IoCheckmarkCircle,
   IoAlertCircle
