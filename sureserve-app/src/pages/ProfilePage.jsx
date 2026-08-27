@@ -11,14 +11,12 @@ import {
   IoClose,
   IoStorefront,
   IoRestaurant,
-  IoChevronForward,
   IoNotifications,
   IoCheckmarkCircle,
-  IoAlertCircle,
-  IoBug
+  IoAlertCircle
 } from 'react-icons/io5';
 import api from '../services/api';
-import { registerPushNotifications, sendTestNotification, getNotificationPermission } from '../services/notifications';
+import { registerPushNotifications, getNotificationPermission } from '../services/notifications';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
@@ -40,7 +38,6 @@ export default function ProfilePage() {
   // Notification State
   const [notifPermission, setNotifPermission] = useState('default');
   const [enablingNotif, setEnablingNotif] = useState(false);
-  const [testingNotif, setTestingNotif] = useState(false);
   const [notifMessage, setNotifMessage] = useState('');
 
   useEffect(() => {
@@ -62,26 +59,6 @@ export default function ProfilePage() {
       setNotifMessage('⚠️ Could not enable notifications. Try again.');
     }
     setEnablingNotif(false);
-  };
-
-  const handleTestNotification = async () => {
-    setTestingNotif(true);
-    try {
-      await sendTestNotification();
-      setNotifMessage('🔔 Test notification sent! Check your notification panel.');
-    } catch (e) {
-      setNotifMessage('❌ Failed to send test: ' + e.message);
-    }
-    setTestingNotif(false);
-  };
-
-  const handleDebugAPI = async () => {
-    try {
-      const res = await api.get('/notifications/debug');
-      alert('Debug Info:\n\n' + JSON.stringify(res.data, null, 2));
-    } catch (e) {
-      alert('Debug failed: ' + e.message);
-    }
   };
 
   const loadProfile = async () => {
@@ -403,55 +380,10 @@ export default function ProfilePage() {
               {enablingNotif ? 'Enabling...' : 'Enable Notifications'}
             </button>
           )}
-          {notifPermission === 'granted' && (
-            <button
-              onClick={handleTestNotification}
-              disabled={testingNotif}
-              style={{
-                flex: 1,
-                background: 'linear-gradient(135deg, #15803D, #166534)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 10,
-                padding: '10px 14px',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-              }}
-            >
-              🔔 {testingNotif ? 'Sending...' : 'Send Test Notification'}
-            </button>
-          )}
           {notifPermission === 'denied' && (
             <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>Notifications are blocked. Open your browser settings and allow notifications for this site, then refresh.</p>
           )}
         </div>
-        
-        <button
-          onClick={handleDebugAPI}
-          style={{
-            marginTop: 10,
-            width: '100%',
-            background: '#F1F5F9',
-            color: '#475569',
-            border: '1px solid #CBD5E1',
-            borderRadius: 10,
-            padding: '8px 14px',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-          }}
-        >
-          <IoBug size={14} /> View Debug Info
-        </button>
       </div>
 
       {/* Logout Button */}
