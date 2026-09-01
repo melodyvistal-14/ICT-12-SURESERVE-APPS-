@@ -17,6 +17,16 @@ public class AuthController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _env;
 
+    // A basic list of inappropriate words for the profanity filter
+    private static readonly HashSet<string> InappropriateWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "admin", "administrator", "root", "superuser", "moderator",
+        "fuck", "shit", "bitch", "ass", "asshole", "dick", "pussy", "cunt",
+        "bastard", "slut", "whore", "fag", "nigger", "nigga", "retard",
+        "stupid", "idiot", "dumb", "crazy", "shet", "gago", "tanga", "bobo",
+        "puta", "putik", "ulol", "gaga"
+    };
+
     public AuthController(AppDbContext context, IConfiguration configuration, IWebHostEnvironment env)
     {
         _context = context;
@@ -181,6 +191,16 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public IActionResult Register([FromBody] RegisterRequest request)
     {
+        // 1. Inappropriate Name Validation
+        if (IsInappropriate(request.Username) || 
+            IsInappropriate(request.FirstName) || 
+            IsInappropriate(request.LastName) || 
+            IsInappropriate(request.FullName) ||
+            IsInappropriate(request.ShopName))
+        {
+            return BadRequest(new { message = "Registration declined: The name provided contains inappropriate language or restricted terms." });
+        }
+
         if (_context.Users.Any(u => u.Username == request.Username))
         {
             return BadRequest(new { message = "Username already exists" });
@@ -318,6 +338,23 @@ public class AuthController : ControllerBase
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private bool IsInappropriate(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        
+        // Check if the text contains any of the inappropriate words
+        foreach (var word in InappropriateWords)
+        {
+            // Simple check: if the word exists within the text
+            // We use IndexOf with OrdinalIgnoreCase for case-insensitive matching
+            if (text.Contains(word, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
