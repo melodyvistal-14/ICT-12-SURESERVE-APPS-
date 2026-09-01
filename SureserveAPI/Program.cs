@@ -94,6 +94,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 
+// Serve uploaded student ID photos from wwwroot/uploads/
+var uploadsDir = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads");
+if (!Directory.Exists(uploadsDir))
+    Directory.CreateDirectory(uploadsDir);
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

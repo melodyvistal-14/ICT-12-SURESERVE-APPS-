@@ -15,13 +15,18 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _env;
 
-    public AuthController(AppDbContext context, IConfiguration configuration)
+    public AuthController(AppDbContext context, IConfiguration configuration, IWebHostEnvironment env)
     {
         _context = context;
         _configuration = configuration;
+        _env = env;
     }
 
+    // ─────────────────────────────────────────────
+    // POST /api/auth/login
+    // ─────────────────────────────────────────────
     [HttpPost("login")]
     public IActionResult Login([FromBody] LoginRequest request)
     {
@@ -48,7 +53,7 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Invalid username/passkey or password." });
         }
 
-        // 2. Enforce portal security role restrictions (Students cannot log into Vendor portal, Vendors cannot log into Student portal)
+        // 2. Enforce portal security role restrictions
         if (!string.IsNullOrWhiteSpace(request.PortalRole) && user.Role != "Admin")
         {
             if (string.Equals(request.PortalRole, "Student", StringComparison.OrdinalIgnoreCase) && user.Role == "Vendor")
@@ -62,10 +67,117 @@ public class AuthController : ControllerBase
             }
         }
 
+        // 3. For students: return requiresIdVerification = true so the frontend triggers Step 2
+        if (user.Role == "Student")
+        {
+            var hasIdPhoto = !string.IsNullOrWhiteSpace(user.StudentProfile?.StudentIdPhotoUrl);
+            return Ok(new
+            {
+                requiresIdVerification = hasIdPhoto,
+                // Pass a short-lived pre-auth token (same JWT) so Step 2 can call verify-id-photo
+                preAuthToken = GenerateJwtToken(user),
+                user = new { user.Id, user.Username, user.FullName, user.Role }
+            });
+        }
+
+        var token = GenerateJwtToken(user);
+        return Ok(new { requiresIdVerification = false, token, user = new { user.Id, user.Username, user.FullName, user.Role } });
+    }
+
+    // ─────────────────────────────────────────────
+    // POST /api/auth/verify-id-photo
+    // Returns the stored StudentIdPhotoUrl so the frontend face-api.js can compare
+    // ─────────────────────────────────────────────
+    [HttpPost("verify-id-photo")]
+    public IActionResult VerifyIdPhoto([FromBody] LoginRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(new { message = "Credentials are required." });
+        }
+
+        var user = _context.Users
+            .Include(u => u.StudentProfile)
+            .FirstOrDefault(u => u.Username == request.Username.Trim() && u.Password == request.Password);
+
+        if (user == null || user.Role != "Student")
+        {
+            return Unauthorized(new { message = "Invalid credentials." });
+        }
+
+        var photoUrl = user.StudentProfile?.StudentIdPhotoUrl ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(photoUrl))
+        {
+            // No ID photo stored — skip verification, return full token
+            var skipToken = GenerateJwtToken(user);
+            return Ok(new { requiresIdVerification = false, token = skipToken, studentIdPhotoUrl = (string?)null });
+        }
+
+        return Ok(new { requiresIdVerification = true, studentIdPhotoUrl = photoUrl });
+    }
+
+    // ─────────────────────────────────────────────
+    // POST /api/auth/complete-login
+    // Called after face verification succeeds; returns the final JWT
+    // ─────────────────────────────────────────────
+    [HttpPost("complete-login")]
+    public IActionResult CompleteLogin([FromBody] LoginRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(new { message = "Credentials are required." });
+        }
+
+        var user = _context.Users
+            .FirstOrDefault(u => u.Username == request.Username.Trim() && u.Password == request.Password);
+
+        if (user == null)
+        {
+            return Unauthorized(new { message = "Invalid credentials." });
+        }
+
         var token = GenerateJwtToken(user);
         return Ok(new { token, user = new { user.Id, user.Username, user.FullName, user.Role } });
     }
 
+    // ─────────────────────────────────────────────
+    // POST /api/auth/upload-image
+    // Accepts multipart/form-data; saves image to wwwroot/uploads/; returns URL
+    // ─────────────────────────────────────────────
+    [HttpPost("upload-image")]
+    public async Task<IActionResult> UploadImage(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "No file uploaded." });
+
+        var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType.ToLower()))
+            return BadRequest(new { message = "Only JPG, PNG, or WEBP images are allowed." });
+
+        // Max 5 MB
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest(new { message = "Image must be smaller than 5 MB." });
+
+        var uploadsPath = Path.Combine(_env.WebRootPath ?? "wwwroot", "uploads");
+        if (!Directory.Exists(uploadsPath))
+            Directory.CreateDirectory(uploadsPath);
+
+        var ext = Path.GetExtension(file.FileName).ToLower();
+        var fileName = $"{Guid.NewGuid()}{ext}";
+        var filePath = Path.Combine(uploadsPath, fileName);
+
+        await using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var url = $"{baseUrl}/uploads/{fileName}";
+
+        return Ok(new { url });
+    }
+
+    // ─────────────────────────────────────────────
+    // POST /api/auth/register
+    // ─────────────────────────────────────────────
     [HttpPost("register")]
     public IActionResult Register([FromBody] RegisterRequest request)
     {
@@ -75,6 +187,17 @@ public class AuthController : ControllerBase
         }
 
         var role = string.Equals(request.Role, "Vendor", StringComparison.OrdinalIgnoreCase) ? "Vendor" : "Student";
+
+        // For students: enforce one account per Student ID
+        if (role == "Student" && !string.IsNullOrWhiteSpace(request.StudentId))
+        {
+            var studentIdAlreadyUsed = _context.StudentProfiles
+                .Any(sp => sp.StudentId == request.StudentId.Trim());
+            if (studentIdAlreadyUsed)
+            {
+                return BadRequest(new { message = "A student account with this Student ID already exists. Each student can only have one account." });
+            }
+        }
 
         var fullName = !string.IsNullOrWhiteSpace(request.FullName)
             ? request.FullName
@@ -160,7 +283,8 @@ public class AuthController : ControllerBase
                 Strand = request.Strand ?? string.Empty,
                 Age = request.Age ?? 0,
                 Birthday = request.Birthday ?? string.Empty,
-                Address = request.Address ?? string.Empty
+                Address = request.Address ?? string.Empty,
+                StudentIdPhotoUrl = request.StudentIdPhotoUrl ?? string.Empty
             };
             _context.StudentProfiles.Add(studentProfile);
         }
@@ -220,4 +344,7 @@ public class RegisterRequest
     public int? Age { get; set; }
     public string? Birthday { get; set; }
     public string? Address { get; set; }
+
+    /// <summary>URL of the uploaded School ID photo (from /auth/upload-image).</summary>
+    public string? StudentIdPhotoUrl { get; set; }
 }

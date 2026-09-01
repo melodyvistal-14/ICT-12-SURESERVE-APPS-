@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { IoEye, IoEyeOff, IoArrowBack, IoSchool, IoStorefront } from 'react-icons/io5';
+import { IoEye, IoEyeOff, IoArrowBack, IoCloudUpload, IoIdCard, IoCheckmarkCircle, IoWarning } from 'react-icons/io5';
 import api from '../services/api';
 
 export default function RegisterPage({ defaultRole }) {
@@ -26,6 +26,15 @@ export default function RegisterPage({ defaultRole }) {
     birthday: '',
     address: '',
   });
+
+  // ID Photo state
+  const [idPhotoFile, setIdPhotoFile] = useState(null);
+  const [idPhotoPreview, setIdPhotoPreview] = useState(null);
+  const [idPhotoUploading, setIdPhotoUploading] = useState(false);
+  const [idPhotoUrl, setIdPhotoUrl] = useState('');
+  const [idPhotoDragOver, setIdPhotoDragOver] = useState(false);
+  const fileInputRef = useRef(null);
+
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,9 +55,67 @@ export default function RegisterPage({ defaultRole }) {
     return calculatedAge.toString();
   };
 
+  // ── Handle ID photo file selection ──
+  const handlePhotoSelect = async (file) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Please upload a JPG, PNG, or WEBP image for your School ID.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('ID photo must be smaller than 5 MB.');
+      return;
+    }
+
+    setIdPhotoFile(file);
+    setIdPhotoPreview(URL.createObjectURL(file));
+    setError('');
+
+    // Upload immediately so we have the URL ready
+    setIdPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post('/auth/upload-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setIdPhotoUrl(res.data.url);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload ID photo. Please try again.');
+      setIdPhotoFile(null);
+      setIdPhotoPreview(null);
+    } finally {
+      setIdPhotoUploading(false);
+    }
+  };
+
+  const handleFileInputChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handlePhotoSelect(file);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIdPhotoDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handlePhotoSelect(file);
+  };
+
+  // ── Form submit ──
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!isVendorRoute && !idPhotoUrl) {
+      setError('Please upload a photo of your School ID before registering.');
+      return;
+    }
+
+    if (idPhotoUploading) {
+      setError('Please wait — your ID photo is still uploading...');
+      return;
+    }
+
     setLoading(true);
 
     const calculatedGradeSection = isVendorRoute
@@ -61,6 +128,7 @@ export default function RegisterPage({ defaultRole }) {
       fullName: isVendorRoute ? form.fullName : `${form.firstName} ${form.lastName}`.trim(),
       gradeSection: calculatedGradeSection,
       age: form.age ? parseInt(form.age) : 0,
+      studentIdPhotoUrl: idPhotoUrl,
     };
 
     try {
@@ -113,8 +181,10 @@ export default function RegisterPage({ defaultRole }) {
             background: 'var(--cancelled-bg)', color: 'var(--cancelled)',
             padding: '10px 16px', borderRadius: 'var(--radius-md)',
             fontSize: 13, fontWeight: 500, marginBottom: 16,
+            display: 'flex', alignItems: 'flex-start', gap: 8,
           }}>
-            {error}
+            <IoWarning size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>{error}</span>
           </div>
         )}
 
@@ -254,6 +324,123 @@ export default function RegisterPage({ defaultRole }) {
                 onChange={(e) => setForm({ ...form, studentId: e.target.value })}
                 required
               />
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                ⚠️ Each student can only create one account. Duplicate Student IDs will be rejected.
+              </span>
+            </div>
+
+            {/* ── School ID Photo Upload ── */}
+            <div style={{
+              background: idPhotoUrl
+                ? 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)'
+                : 'linear-gradient(135deg, #F8FAFF 0%, #EEF2FF 100%)',
+              border: idPhotoDragOver
+                ? '2px dashed var(--primary)'
+                : idPhotoUrl
+                  ? '2px solid #22C55E'
+                  : '2px dashed #CBD5E1',
+              borderRadius: 16,
+              padding: '18px 16px',
+              marginBottom: 16,
+              transition: 'all 0.25s ease',
+            }}
+              onDragOver={(e) => { e.preventDefault(); setIdPhotoDragOver(true); }}
+              onDragLeave={() => setIdPhotoDragOver(false)}
+              onDrop={handleDrop}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: idPhotoUrl ? '#22C55E' : 'var(--primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', flexShrink: 0,
+                }}>
+                  {idPhotoUrl ? <IoCheckmarkCircle size={20} /> : <IoIdCard size={20} />}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: idPhotoUrl ? '#15803D' : '#1E293B' }}>
+                    {idPhotoUrl ? '✅ School ID Photo Uploaded' : '📸 Upload Your School ID Photo'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {idPhotoUrl
+                      ? 'Your ID photo is saved. It will be used to verify your identity at login.'
+                      : 'Required · Used for identity verification when you log in'}
+                  </div>
+                </div>
+              </div>
+
+              {idPhotoPreview && (
+                <div style={{ marginBottom: 14, textAlign: 'center' }}>
+                  <img
+                    src={idPhotoPreview}
+                    alt="School ID preview"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: 180,
+                      borderRadius: 12,
+                      objectFit: 'contain',
+                      border: '2px solid #E2E8F0',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    }}
+                  />
+                  {idPhotoUploading && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>
+                      ⏳ Uploading photo...
+                    </div>
+                  )}
+                  {idPhotoUrl && !idPhotoUploading && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#22C55E', fontWeight: 600 }}>
+                      ✅ Upload complete!
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                style={{ display: 'none' }}
+                id="id-photo-input"
+                onChange={handleFileInputChange}
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={idPhotoUploading}
+                style={{
+                  width: '100%',
+                  padding: '11px',
+                  borderRadius: 12,
+                  border: 'none',
+                  background: idPhotoUrl
+                    ? 'rgba(34,197,94,0.12)'
+                    : 'rgba(21,128,61,0.10)',
+                  color: idPhotoUrl ? '#15803D' : 'var(--primary)',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: idPhotoUploading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'all 0.2s',
+                }}
+              >
+                <IoCloudUpload size={18} />
+                {idPhotoUploading
+                  ? 'Uploading...'
+                  : idPhotoUrl
+                    ? 'Change ID Photo'
+                    : 'Choose / Drop Photo Here'}
+              </button>
+
+              {!idPhotoUrl && (
+                <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
+                  📱 Take a clear photo of your physical School ID card · Max 5MB · JPG, PNG, WEBP
+                </p>
+              )}
             </div>
 
             {/* Grade Level & Section */}
@@ -387,8 +574,16 @@ export default function RegisterPage({ defaultRole }) {
           </div>
         </div>
 
-        <button className="btn btn-primary" disabled={loading} style={{ marginTop: 8 }}>
-          {loading ? 'Creating Account...' : (isVendorRoute ? 'Create Canteen Stall Account 🏪' : 'Register Student Account 🎓')}
+        <button
+          className="btn btn-primary"
+          disabled={loading || idPhotoUploading || (!isVendorRoute && !idPhotoUrl)}
+          style={{ marginTop: 8 }}
+        >
+          {loading
+            ? 'Creating Account...'
+            : idPhotoUploading
+              ? 'Uploading ID Photo...'
+              : (isVendorRoute ? 'Create Canteen Stall Account 🏪' : 'Register Student Account 🎓')}
         </button>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: 'var(--text-secondary)' }}>

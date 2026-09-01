@@ -44,6 +44,10 @@ public class StudentProfile
     [MaxLength(255)]
     public string Address { get; set; } = string.Empty;
 
+    /// <summary>URL/path to the student's uploaded School ID photo (used for face-verification at login).</summary>
+    [MaxLength(500)]
+    public string StudentIdPhotoUrl { get; set; } = string.Empty;
+
     // Navigation
     [ForeignKey("UserId")]
     public User User { get; set; } = null!;
