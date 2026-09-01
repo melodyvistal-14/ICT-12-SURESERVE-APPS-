@@ -210,7 +210,8 @@ public class AuthController : ControllerBase
             Username = request.Username,
             Password = request.Password,
             FullName = fullName,
-            Role = role
+            Role = role,
+            ProfileImageUrl = request.ProfileImageUrl ?? string.Empty
         };
 
         _context.Users.Add(user);
@@ -267,7 +268,8 @@ public class AuthController : ControllerBase
                 LastName = request.LastName ?? string.Empty,
                 Age = request.Age ?? 0,
                 Birthday = request.Birthday ?? string.Empty,
-                Address = request.Address ?? string.Empty
+                Address = request.Address ?? string.Empty,
+                StallImageUrl = request.StallImageUrl ?? string.Empty
             };
             _context.VendorProfiles.Add(vendorProfile);
         }
@@ -345,6 +347,12 @@ public class RegisterRequest
     public string? Birthday { get; set; }
     public string? Address { get; set; }
 
+    /// <summary>URL of the uploaded Profile Picture (for both students and vendors).</summary>
+    public string? ProfileImageUrl { get; set; }
+
     /// <summary>URL of the uploaded School ID photo (from /auth/upload-image).</summary>
     public string? StudentIdPhotoUrl { get; set; }
+
+    /// <summary>URL of the uploaded Full Picture of the canteen stall (vendors only).</summary>
+    public string? StallImageUrl { get; set; }
 }

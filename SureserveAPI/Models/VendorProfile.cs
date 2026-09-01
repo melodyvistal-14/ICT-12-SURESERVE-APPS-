@@ -20,6 +20,10 @@ public class VendorProfile
     [MaxLength(255)]
     public string LogoUrl { get; set; } = string.Empty;
 
+    /// <summary>Full picture of the canteen stall</summary>
+    [MaxLength(500)]
+    public string StallImageUrl { get; set; } = string.Empty;
+
     public bool IsActive { get; set; } = true;
 
     [MaxLength(50)]
