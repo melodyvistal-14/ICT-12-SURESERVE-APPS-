@@ -7,11 +7,16 @@ using SureserveAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database - Railway PostgreSQL (supports DATABASE_URL fallback)
+// Database - Railway PostgreSQL or Local SQLite fallback
 var connectionString = "";
+var usePostgres = false;
+
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+var pgHost = Environment.GetEnvironmentVariable("PGHOST");
+
 if (!string.IsNullOrWhiteSpace(databaseUrl))
 {
+    usePostgres = true;
     var uri = new Uri(databaseUrl);
     var userInfo = uri.UserInfo.Split(':');
     var npgsqlBuilder = new Npgsql.NpgsqlConnectionStringBuilder
@@ -21,22 +26,36 @@ if (!string.IsNullOrWhiteSpace(databaseUrl))
         Database = uri.AbsolutePath.TrimStart('/'),
         Username = userInfo[0],
         Password = userInfo.Length > 1 ? userInfo[1] : "",
-        SslMode = Npgsql.SslMode.Require,
-        TrustServerCertificate = true
+        SslMode = Npgsql.SslMode.Require
     };
     connectionString = npgsqlBuilder.ConnectionString;
 }
-else
+else if (!string.IsNullOrWhiteSpace(pgHost))
 {
-    connectionString = $"Host={Environment.GetEnvironmentVariable("PGHOST")};" +
+    usePostgres = true;
+    connectionString = $"Host={pgHost};" +
                      $"Port={Environment.GetEnvironmentVariable("PGPORT")};" +
                      $"Database={Environment.GetEnvironmentVariable("PGDATABASE")};" +
                      $"Username={Environment.GetEnvironmentVariable("PGUSER")};" +
                      $"Password={Environment.GetEnvironmentVariable("PGPASSWORD")};";
 }
+else
+{
+    // Fallback to local SQLite when running locally
+    connectionString = "Data Source=app.db";
+}
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    if (usePostgres)
+    {
+        options.UseNpgsql(connectionString);
+    }
+    else
+    {
+        options.UseSqlite(connectionString);
+    }
+});
 
 builder.Services.AddSingleton<PushNotificationService>();
 

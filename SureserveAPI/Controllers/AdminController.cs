@@ -568,6 +568,63 @@ public class VendorStatusRequest
 
         return Ok(new { message = "Passkey revoked successfully." });
     }
+
+    /// <summary>
+    /// Get all orders across all students for admin monitoring.
+    /// </summary>
+    [HttpGet("orders")]
+    public async Task<IActionResult> GetAllOrders([FromQuery] string? status)
+    {
+        var query = _context.Orders
+            .Include(o => o.User)
+                .ThenInclude(u => u.StudentProfile)
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.MenuItem)
+                    .ThenInclude(mi => mi.VendorProfile)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(status) && status.ToLower() != "all")
+        {
+            query = query.Where(o => o.Status == status);
+        }
+
+        var orders = await query
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+
+        // Pre-compute cancellation counts per user
+        var userIds = orders.Select(o => o.UserId).Distinct().ToList();
+        var cancelCounts = await _context.Orders
+            .Where(o => userIds.Contains(o.UserId) && o.Status == "Cancelled")
+            .GroupBy(o => o.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.UserId, x => x.Count);
+
+        var result = orders.Select(o => new
+        {
+            o.Id,
+            o.OrderNumber,
+            o.Status,
+            o.SubTotal,
+            o.TotalAmount,
+            o.CreatedAt,
+            StudentName = o.User.FullName,
+            StudentId = o.User.StudentProfile != null ? o.User.StudentProfile.StudentId : "N/A",
+            StudentUsername = o.User.Username,
+            StudentRole = o.User.Role,
+            CancellationCount = cancelCounts.ContainsKey(o.UserId) ? cancelCounts[o.UserId] : 0,
+            Items = o.OrderItems.Select(oi => new
+            {
+                oi.Id,
+                ItemName = oi.MenuItem != null ? oi.MenuItem.Name : "Unknown Item",
+                oi.Quantity,
+                oi.Price,
+                StallName = oi.MenuItem?.VendorProfile != null ? oi.MenuItem.VendorProfile.ShopName : "Unknown Stall"
+            })
+        });
+
+        return Ok(result);
+    }
 }
 
 public class UpdatePasskeyRequest

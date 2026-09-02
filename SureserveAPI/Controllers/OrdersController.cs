@@ -271,7 +271,7 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
-    /// Cancel an order (student can only cancel Pending orders).
+    /// Cancel an order (student can only cancel Pending orders, max 2 cancellations total).
     /// </summary>
     [HttpPut("{id}/cancel")]
     public async Task<IActionResult> CancelOrder(int id)
@@ -288,6 +288,19 @@ public class OrdersController : ControllerBase
         if (order.Status != "Pending")
             return BadRequest(new { message = "Only pending orders can be cancelled." });
 
+        // Count how many orders this user has already cancelled
+        var cancelledCount = await _context.Orders
+            .CountAsync(o => o.UserId == userId && o.Status == "Cancelled");
+
+        if (cancelledCount >= 2)
+        {
+            return BadRequest(new { 
+                message = "You have reached the maximum number of allowed cancellations (2). You can no longer cancel orders.",
+                cancelLimitReached = true,
+                cancelledCount = cancelledCount
+            });
+        }
+
         order.Status = "Cancelled";
 
         // Restore stock
@@ -298,7 +311,11 @@ public class OrdersController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        return Ok(new { message = "Order cancelled." });
+        return Ok(new { 
+            message = "Order cancelled.", 
+            cancelledCount = cancelledCount + 1,
+            cancellationsRemaining = 1 - cancelledCount  // 2 max - (count+1) = 1 - count
+        });
     }
 }
 
