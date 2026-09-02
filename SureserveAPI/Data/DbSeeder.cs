@@ -25,6 +25,10 @@ public static class DbSeeder
             context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Birthday\" varchar(20) DEFAULT '';");
             context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Address\" varchar(255) DEFAULT '';");
             context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Status\" varchar(50) DEFAULT 'Active';");
+            context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"StallImageUrl\" varchar(255) DEFAULT '';");
+
+            context.Database.ExecuteSqlRaw("ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"StudentIdPhotoUrl\" text DEFAULT '';");
+            context.Database.ExecuteSqlRaw("ALTER TABLE \"Users\" ADD COLUMN IF NOT EXISTS \"ProfileImageUrl\" varchar(255) DEFAULT '';");
 
 
             context.Database.ExecuteSqlRaw(@"
