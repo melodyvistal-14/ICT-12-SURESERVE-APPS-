@@ -9,28 +9,40 @@ public static class DbSeeder
     {
         context.Database.EnsureCreated();
 
+        var alterCommands = new[]
+        {
+            "ALTER TABLE \"MenuItems\" ALTER COLUMN \"ImageUrl\" TYPE text;",
+            "ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"FirstName\" varchar(50) DEFAULT '';",
+            "ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"LastName\" varchar(50) DEFAULT '';",
+            "ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Age\" integer DEFAULT 0;",
+            "ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Birthday\" varchar(20) DEFAULT '';",
+            "ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Strand\" varchar(100) DEFAULT '';",
+            "ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Address\" varchar(255) DEFAULT '';",
+            "ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"FirstName\" varchar(50) DEFAULT '';",
+            "ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"LastName\" varchar(50) DEFAULT '';",
+            "ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Age\" integer DEFAULT 0;",
+            "ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Birthday\" varchar(20) DEFAULT '';",
+            "ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Address\" varchar(255) DEFAULT '';",
+            "ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Status\" varchar(50) DEFAULT 'Active';",
+            "ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"StallImageUrl\" varchar(255) DEFAULT '';",
+            "ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"StudentIdPhotoUrl\" text DEFAULT '';",
+            "ALTER TABLE \"Users\" ADD COLUMN IF NOT EXISTS \"ProfileImageUrl\" varchar(255) DEFAULT '';"
+        };
+
+        foreach (var cmd in alterCommands)
+        {
+            try
+            {
+                context.Database.ExecuteSqlRaw(cmd);
+            }
+            catch
+            {
+                // Ignore if it fails (e.g. SQLite doesn't support ALTER COLUMN TYPE)
+            }
+        }
+
         try
         {
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"MenuItems\" ALTER COLUMN \"ImageUrl\" TYPE text;");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"FirstName\" varchar(50) DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"LastName\" varchar(50) DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Age\" integer DEFAULT 0;");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Birthday\" varchar(20) DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Strand\" varchar(100) DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Address\" varchar(255) DEFAULT '';");
-
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"FirstName\" varchar(50) DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"LastName\" varchar(50) DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Age\" integer DEFAULT 0;");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Birthday\" varchar(20) DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Address\" varchar(255) DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"Status\" varchar(50) DEFAULT 'Active';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"VendorProfiles\" ADD COLUMN IF NOT EXISTS \"StallImageUrl\" varchar(255) DEFAULT '';");
-
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"StudentIdPhotoUrl\" text DEFAULT '';");
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"Users\" ADD COLUMN IF NOT EXISTS \"ProfileImageUrl\" varchar(255) DEFAULT '';");
-
-
             context.Database.ExecuteSqlRaw(@"
                 CREATE TABLE IF NOT EXISTS ""SystemSettings"" (
                     ""Id"" SERIAL PRIMARY KEY,
