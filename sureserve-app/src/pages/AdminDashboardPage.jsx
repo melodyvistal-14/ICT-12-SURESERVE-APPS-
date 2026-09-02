@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   IoShieldCheckmark, IoPeople, IoStorefront, IoReceipt, IoCash,
   IoKey, IoCopy, IoRefresh, IoCheckmarkCircle, IoSearch, IoLogOut, IoWarning,
-  IoGridOutline, IoListOutline, IoBanOutline, IoPauseCircleOutline, IoTrashOutline
+  IoGridOutline, IoListOutline, IoBanOutline, IoPauseCircleOutline, IoTrashOutline,
+  IoFastFoodOutline, IoCloseCircleOutline
 } from 'react-icons/io5';
 import api from '../services/api';
 
@@ -30,6 +31,11 @@ export default function AdminDashboardPage() {
   const [vendorPasskeys, setVendorPasskeys] = useState([]);
 
   const [newStallDescription, setNewStallDescription] = useState('');
+
+  // Admin Orders state
+  const [adminOrders, setAdminOrders] = useState([]);
+  const [adminOrderFilter, setAdminOrderFilter] = useState('All');
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
   const fetchStats = async () => {
     try {
@@ -68,10 +74,22 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const fetchAdminOrders = async (statusFilter) => {
+    setLoadingOrders(true);
+    try {
+      const params = statusFilter && statusFilter !== 'All' ? { status: statusFilter } : {};
+      const res = await api.get('/admin/orders', { params });
+      setAdminOrders(res.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+    setLoadingOrders(false);
+  };
+
   useEffect(() => {
     const loadAll = async () => {
       setLoading(true);
-      await Promise.all([fetchStats(), fetchStudents(), fetchVendors(), fetchVendorPasskeys()]);
+      await Promise.all([fetchStats(), fetchStudents(), fetchVendors(), fetchVendorPasskeys(), fetchAdminOrders('All')]);
       setLoading(false);
     };
     loadAll();
@@ -366,6 +384,17 @@ export default function AdminDashboardPage() {
             }}
           >
             🏪 Vendors ({vendors.length})
+          </button>
+          <button
+            onClick={() => { setActiveTab('orders'); fetchAdminOrders(adminOrderFilter); }}
+            style={{
+              flex: 1, padding: '10px 4px', border: 'none', borderRadius: 10,
+              background: activeTab === 'orders' ? '#166534' : 'transparent',
+              color: activeTab === 'orders' ? 'white' : '#94A3B8',
+              fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.2s'
+            }}
+          >
+            📋 Orders
           </button>
         </div>
       </div>
@@ -1272,6 +1301,119 @@ export default function AdminDashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ═══════ TAB 5: ORDERS MONITORING ═══════ */}
+      {activeTab === 'orders' && (
+        <div style={{ padding: '20px 20px' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 14 }}>
+            📋 All Student Orders & Reservations
+          </h3>
+
+          {/* Status Filter Buttons */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+            {['All', 'Pending', 'Preparing', 'Ready', 'Completed', 'Cancelled'].map(s => (
+              <button
+                key={s}
+                onClick={() => { setAdminOrderFilter(s); fetchAdminOrders(s); }}
+                style={{
+                  padding: '6px 14px', borderRadius: 20, border: 'none',
+                  background: adminOrderFilter === s ? (s === 'Cancelled' ? '#DC2626' : '#166534') : '#E2E8F0',
+                  color: adminOrderFilter === s ? 'white' : '#475569',
+                  fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.2s',
+                }}
+              >
+                {s === 'Cancelled' ? `🚫 ${s}` : s === 'Pending' ? `⏳ ${s}` : s === 'Preparing' ? `👨‍🍳 ${s}` : s === 'Ready' ? `✅ ${s}` : s === 'Completed' ? `✓ ${s}` : `📋 ${s}`}
+              </button>
+            ))}
+          </div>
+
+          {loadingOrders ? (
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <div className="spinner" />
+            </div>
+          ) : adminOrders.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
+              <IoFastFoodOutline size={48} style={{ marginBottom: 12 }} />
+              <p style={{ fontWeight: 700, fontSize: 16 }}>No {adminOrderFilter !== 'All' ? adminOrderFilter.toLowerCase() : ''} orders found</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {adminOrders.map((order) => {
+                const isCancelled = order.status === 'Cancelled';
+                const statusColors = {
+                  Pending: { bg: '#FEF3C7', color: '#92400E', border: '#F59E0B' },
+                  Preparing: { bg: '#DBEAFE', color: '#1E40AF', border: '#3B82F6' },
+                  Ready: { bg: '#DCFCE7', color: '#166534', border: '#22C55E' },
+                  Completed: { bg: '#F0FDF4', color: '#166534', border: '#86EFAC' },
+                  Cancelled: { bg: '#FEE2E2', color: '#DC2626', border: '#EF4444' },
+                };
+                const sc = statusColors[order.status] || statusColors.Pending;
+
+                return (
+                  <div key={order.id} style={{
+                    background: 'white',
+                    borderRadius: 16,
+                    border: `1px solid ${isCancelled ? '#FECACA' : '#E2E8F0'}`,
+                    padding: '16px',
+                    boxShadow: isCancelled ? '0 2px 8px rgba(220,38,38,0.08)' : '0 2px 8px rgba(0,0,0,0.03)',
+                  }}>
+                    {/* Header Row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>{order.orderNumber}</span>
+                        <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 8 }}>
+                          {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <span style={{
+                        padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                        background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
+                      }}>
+                        {order.status}
+                      </span>
+                    </div>
+
+                    {/* Student Info */}
+                    <div style={{
+                      background: '#F8FAFC', borderRadius: 10, padding: '10px 12px', marginBottom: 10,
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B' }}>🎓 {order.studentName}</div>
+                        <div style={{ fontSize: 11, color: '#64748B' }}>ID: {order.studentId} · @{order.studentUsername}</div>
+                      </div>
+                      {order.cancellationCount > 0 && (
+                        <span style={{
+                          padding: '3px 8px', borderRadius: 8, fontSize: 10, fontWeight: 800,
+                          background: order.cancellationCount >= 2 ? '#FEE2E2' : '#FEF3C7',
+                          color: order.cancellationCount >= 2 ? '#DC2626' : '#92400E',
+                        }}>
+                          {order.cancellationCount >= 2 ? '🚫 MAX CANCELS' : `⚠️ ${order.cancellationCount} cancel(s)`}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Items */}
+                    <div style={{ marginBottom: 8 }}>
+                      {order.items?.map((item, idx) => (
+                        <div key={idx} style={{ fontSize: 12, padding: '2px 0', color: '#475569' }}>
+                          • {item.itemName} <strong>x{item.quantity}</strong> — ₱{(item.price * item.quantity).toFixed(2)}
+                          <span style={{ color: '#94A3B8', marginLeft: 6, fontSize: 10 }}>({item.stallName})</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Total */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontWeight: 800, fontSize: 15, color: '#166534' }}>
+                      ₱{order.totalAmount?.toFixed(2)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -5,7 +5,8 @@ import {
   IoFastFoodOutline,
   IoChevronForward,
   IoAlertCircleOutline,
-  IoWarningOutline
+  IoWarningOutline,
+  IoBanOutline
 } from 'react-icons/io5';
 import api from '../services/api';
 
@@ -18,9 +19,13 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Custom Cancel Confirmation State (Replaces native browser confirm alert)
+  // Custom Cancel Confirmation State
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelling, setCancelling] = useState(false);
+
+  // Cancel limit state
+  const [cancelLimitModal, setCancelLimitModal] = useState(false);
+  const [cancelledCount, setCancelledCount] = useState(0);
 
   const navigate = useNavigate();
 
@@ -33,22 +38,43 @@ export default function OrdersPage() {
     try {
       const res = await api.get('/orders', { params: { status: activeTab } });
       setOrders(res.data);
+
+      // Fetch user's current cancellation count
+      try {
+        const cancelRes = await api.get('/orders', { params: { status: 'cancelled' } });
+        setCancelledCount(cancelRes.data.length);
+      } catch { /* ignore */ }
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
   };
 
+  const handleCancelClick = (order) => {
+    if (cancelledCount >= 2) {
+      setCancelLimitModal(true);
+      return;
+    }
+    setCancelTarget(order);
+  };
+
   const confirmCancelOrder = async () => {
     if (!cancelTarget) return;
     setCancelling(true);
     try {
-      await api.put(`/orders/${cancelTarget.id}/cancel`);
+      const res = await api.put(`/orders/${cancelTarget.id}/cancel`);
+      if (res.data.cancelledCount) setCancelledCount(res.data.cancelledCount);
       await loadOrders();
       if (selectedOrder?.id === cancelTarget.id) setSelectedOrder(null);
       setCancelTarget(null);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to cancel order');
+      const data = err.response?.data;
+      if (data?.cancelLimitReached) {
+        setCancelTarget(null);
+        setCancelLimitModal(true);
+      } else {
+        alert(data?.message || 'Failed to cancel order');
+      }
     } finally {
       setCancelling(false);
     }
@@ -87,6 +113,8 @@ export default function OrdersPage() {
     };
     return map[status] || status;
   };
+
+  const cancellationsRemaining = Math.max(0, 2 - cancelledCount);
 
   return (
     <div className="page" style={{ paddingBottom: '100px' }}>
@@ -154,7 +182,7 @@ export default function OrdersPage() {
               <span className="order-total">₱{order.totalAmount?.toFixed(2)}</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 {order.status === 'Pending' && (
-                  <button className="btn btn-outline btn-sm" onClick={() => setCancelTarget(order)}>
+                  <button className="btn btn-outline btn-sm" onClick={() => handleCancelClick(order)}>
                     Cancel
                   </button>
                 )}
@@ -171,7 +199,54 @@ export default function OrdersPage() {
         ))
       )}
 
-      {/* CUSTOM CANCEL ORDER QUESTION MODAL (Replaces browser confirm popup) */}
+      {/* ═══════ CANCEL LIMIT REACHED MODAL ═══════ */}
+      {cancelLimitModal && (
+        <div className="modal-overlay" onClick={() => setCancelLimitModal(false)}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ textAlign: 'center', padding: '28px 24px' }}
+          >
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)',
+              color: '#DC2626',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px',
+              boxShadow: '0 4px 14px rgba(220,38,38,0.2)',
+            }}>
+              <IoBanOutline size={36} />
+            </div>
+
+            <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: '#DC2626' }}>
+              🚫 Cancellation Limit Reached
+            </h3>
+
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8, lineHeight: 1.6 }}>
+              You have already cancelled <strong style={{ color: '#DC2626' }}>2 orders</strong>.
+              You are <strong>no longer allowed</strong> to cancel any more orders.
+            </p>
+
+            <div style={{
+              background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 12,
+              padding: '10px 14px', fontSize: 12, color: '#92400E', marginBottom: 20,
+              fontWeight: 500,
+            }}>
+              ⚠️ Please make sure to only order food that you will actually pick up from the canteen.
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={() => setCancelLimitModal(false)}
+              style={{ background: '#DC2626' }}
+            >
+              I Understand
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════ CANCEL CONFIRMATION MODAL ═══════ */}
       {cancelTarget && (
         <div className="modal-overlay" onClick={() => setCancelTarget(null)}>
           <div
@@ -181,14 +256,9 @@ export default function OrdersPage() {
           >
             <div
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: '50%',
-                background: '#FEE2E2',
-                color: '#EF4444',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                width: 56, height: 56, borderRadius: '50%',
+                background: '#FEE2E2', color: '#EF4444',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 margin: '0 auto 12px',
               }}
             >
@@ -199,28 +269,36 @@ export default function OrdersPage() {
               Cancel Food Reservation?
             </h3>
 
-            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
               Are you sure you want to cancel order <strong style={{ color: 'var(--primary)' }}>{cancelTarget.orderNumber}</strong>?
               <br />
               The reserved food items will be released back to the canteen.
             </p>
 
+            {/* Cancellation remaining warning */}
+            <div style={{
+              background: cancellationsRemaining <= 1 ? '#FEF3C7' : '#F0F9FF',
+              border: `1px solid ${cancellationsRemaining <= 1 ? '#F59E0B' : '#BAE6FD'}`,
+              borderRadius: 10, padding: '8px 12px', fontSize: 12, marginBottom: 16,
+              color: cancellationsRemaining <= 1 ? '#92400E' : '#0369A1',
+              fontWeight: 600,
+            }}>
+              {cancellationsRemaining <= 1
+                ? `⚠️ Warning: This is your LAST cancellation! After this, you won't be able to cancel any more orders.`
+                : `ℹ️ You have ${cancellationsRemaining} cancellation(s) remaining out of 2 allowed.`}
+            </div>
+
             <div style={{ display: 'flex', gap: 10 }}>
               <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ flex: 1 }}
-                onClick={() => setCancelTarget(null)}
-                disabled={cancelling}
+                type="button" className="btn btn-ghost" style={{ flex: 1 }}
+                onClick={() => setCancelTarget(null)} disabled={cancelling}
               >
                 Keep Order
               </button>
               <button
-                type="button"
-                className="btn btn-danger"
+                type="button" className="btn btn-danger"
                 style={{ flex: 1, background: '#EF4444' }}
-                onClick={confirmCancelOrder}
-                disabled={cancelling}
+                onClick={confirmCancelOrder} disabled={cancelling}
               >
                 {cancelling ? 'Cancelling...' : 'Yes, Cancel Order'}
               </button>
@@ -229,7 +307,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* ORDER DETAILS MODAL SHEET */}
+      {/* ═══════ ORDER DETAILS MODAL ═══════ */}
       {selectedOrder && (
         <div className="modal-overlay" onClick={() => setSelectedOrder(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '24px' }}>
@@ -286,11 +364,8 @@ export default function OrdersPage() {
                     }
                   }}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '10px 12px',
-                    borderRadius: 'var(--radius-md)',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border-light)',
                     background: 'var(--surface-hover)',
                     cursor: item.menuItemId ? 'pointer' : 'default',
@@ -298,15 +373,9 @@ export default function OrdersPage() {
                 >
                   <div
                     style={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: 'var(--radius-md)',
-                      background: '#E2E8F0',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      width: 50, height: 50, borderRadius: 'var(--radius-md)',
+                      background: '#E2E8F0', overflow: 'hidden', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
                     {item.imageUrl ? (
@@ -361,7 +430,7 @@ export default function OrdersPage() {
                   onClick={() => {
                     const target = selectedOrder;
                     setSelectedOrder(null);
-                    setCancelTarget(target);
+                    handleCancelClick(target);
                   }}
                 >
                   Cancel Order
