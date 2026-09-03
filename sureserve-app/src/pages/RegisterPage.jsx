@@ -300,8 +300,8 @@ export default function RegisterPage({ defaultRole }) {
           <>
             {/* Student First & Last Name */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div className="input-group"><label>First Name</label><input className="input" type="text" placeholder="e.g. Princess" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required /></div>
-              <div className="input-group"><label>Last Name</label><input className="input" type="text" placeholder="e.g. Sabino" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required /></div>
+              <div className="input-group"><label>First Name</label><input className="input" type="text" placeholder="e.g. Juan" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required /></div>
+              <div className="input-group"><label>Last Name</label><input className="input" type="text" placeholder="e.g. Dela Cruz" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required /></div>
             </div>
 
             {/* Student ID Number */}

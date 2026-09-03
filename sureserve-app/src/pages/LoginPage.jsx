@@ -530,7 +530,7 @@ export default function LoginPage() {
                     <input
                       className="input"
                       type="text"
-                      placeholder={loginRole === 'Vendor' ? 'Enter your vendor passkey' : 'e.g. princess or student ID'}
+                      placeholder={loginRole === 'Vendor' ? 'Enter your vendor passkey' : 'e.g. Student ID'}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
