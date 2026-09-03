@@ -121,9 +121,9 @@ public static class DbSeeder
             // Create Vendor Account
             var vendorUser = new User
             {
-                Username = "vendor",
+                Username = "demovendor",
                 Password = "vendor123",
-                FullName = "Tia Mel",
+                FullName = "Tia Mel Demo",
                 Role = "Vendor",
                 Email = "vendor@sureserve.edu",
                 ContactNumber = "0917-123-4567"
@@ -133,11 +133,11 @@ public static class DbSeeder
             // Create Student Account
             var studentUser = new User
             {
-                Username = "student",
+                Username = "demostudent",
                 Password = "student123",
-                FullName = "Princess Sabino",
+                FullName = "Juan Dela Cruz",
                 Role = "Student",
-                Email = "princess@sureserve.edu",
+                Email = "student@sureserve.edu",
                 ContactNumber = "0999-888-7766"
             };
             context.Users.Add(studentUser);
