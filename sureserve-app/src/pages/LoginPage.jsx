@@ -9,9 +9,8 @@ import {
 import CanteenIllustration from '../components/CanteenIllustration';
 import api from '../services/api';
 
-// ── Face verification step ──────────────────────────────────────────────────
+// ── ID Text verification step (OCR) ──────────────────────────────────────────────────
 function IdVerificationStep({ username, password, onSuccess, onCancel }) {
-  const [storedPhotoUrl, setStoredPhotoUrl] = useState(null);
   const [capturedPhotoPreview, setCapturedPhotoPreview] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -20,27 +19,8 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const storedImgRef = useRef(null);
   const capturedImgRef = useRef(null);
   const streamRef = useRef(null);
-
-  // Load stored photo URL on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.post('/auth/verify-id-photo', { username, password });
-        if (!res.data.requiresIdVerification) {
-          // No ID photo stored — skip verification
-          onSuccess(res.data.token);
-          return;
-        }
-        setStoredPhotoUrl(res.data.studentIdPhotoUrl);
-      } catch {
-        setStatus('error');
-        setMessage('Could not retrieve your ID photo. Please try again.');
-      }
-    })();
-  }, [username, password]);
 
   // Setup camera stream
   useEffect(() => {
@@ -96,64 +76,36 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
     setMessage('');
   };
 
-  const runFaceMatch = async () => {
-    if (!capturedPhotoPreview || !storedPhotoUrl) return;
+  const runOcrMatch = async () => {
+    if (!capturedPhotoPreview) return;
 
     setStatus('loading-models');
-    setMessage('Loading face recognition models...');
+    setMessage('Initializing text recognition... This may take a moment.');
 
     try {
-      // Dynamically import face-api.js (tree-shaken, only loaded when needed)
-      const faceapi = await import('face-api.js');
-
-      const MODEL_URL = '/models';
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      const Tesseract = (await import('tesseract.js')).default;
 
       setStatus('matching');
-      setMessage('Comparing faces — please wait...');
+      setMessage('Reading text from ID card...');
 
-      const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 });
+      const result = await Tesseract.recognize(
+        capturedPhotoPreview,
+        'eng',
+      );
 
-      const storedImg = storedImgRef.current;
-      const capturedImg = capturedImgRef.current;
+      const text = result.data.text.replace(/\s+/g, '').toLowerCase();
+      const expectedId = username.replace(/\s+/g, '').toLowerCase();
 
-      if (!storedImg || !capturedImg) {
-        throw new Error('Images not ready. Please try again.');
-      }
-
-      // Get face descriptors from both images
-      const [desc1, desc2] = await Promise.all([
-        faceapi.detectSingleFace(storedImg, opts).withFaceLandmarks().withFaceDescriptor(),
-        faceapi.detectSingleFace(capturedImg, opts).withFaceLandmarks().withFaceDescriptor(),
-      ]);
-
-      if (!desc1) {
-        setStatus('failed');
-        setMessage('⚠️ No face detected in your registered School ID photo. Please contact the school admin.');
-        return;
-      }
-      if (!desc2) {
-        setStatus('failed');
-        setMessage('⚠️ No face detected in the scanned ID. Please ensure the face is visible and try again.');
-        return;
-      }
-
-      const distance = faceapi.euclideanDistance(desc1.descriptor, desc2.descriptor);
-      // distance < 0.5 means the faces are likely the same person
-      const THRESHOLD = 0.52;
-
-      if (distance <= THRESHOLD) {
+      if (text.includes(expectedId)) {
         setStatus('matched');
-        setMessage(`✅ Identity verified! (Match confidence: ${Math.round((1 - distance) * 100)}%)`);
+        setMessage(`✅ Identity verified! Student ID (${username}) matched.`);
       } else {
         setStatus('failed');
-        setMessage(`❌ Face mismatch detected. The scanned ID does not match your registered School ID. (Distance: ${distance.toFixed(2)})`);
+        setMessage(`❌ Could not find Student ID (${username}) on the card. Please ensure the text is clear and readable.`);
       }
     } catch (err) {
       setStatus('error');
-      setMessage(err.message || 'Face verification failed. Please try again.');
+      setMessage(err.message || 'Text recognition failed. Please try again.');
     }
   };
 
@@ -204,91 +156,64 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
       </div>
 
       <p style={{ fontSize: 13, color: '#475569', textAlign: 'center', marginBottom: 20, lineHeight: 1.5 }}>
-        Scan your <strong>School ID card</strong>. Our system will automatically verify your identity using face recognition.
+        Scan your <strong>School ID card</strong>. Our system will read the text to verify your Student ID.
       </p>
 
-      {/* Side-by-side comparison */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-        {/* Stored ID photo */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Registered ID
-          </div>
-          <div style={{
-            border: '2px solid #E2E8F0', borderRadius: 12, overflow: 'hidden',
-            background: '#F8FAFC', aspectRatio: '4/3',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {storedPhotoUrl ? (
-              <img
-                ref={storedImgRef}
-                src={storedPhotoUrl}
-                alt="Registered ID"
-                crossOrigin="anonymous"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <div style={{ color: '#CBD5E1', fontSize: 28 }}><IoIdCard /></div>
-            )}
-          </div>
+      {/* Camera feed or captured photo */}
+      <div style={{ marginBottom: 16, maxWidth: 400, margin: '0 auto' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>
+          Scan ID
         </div>
-
-        {/* Camera feed or captured photo */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Scan ID
-          </div>
-          <div
-            style={{
-              border: '2px solid #CBD5E1',
-              borderRadius: 12, overflow: 'hidden',
-              background: '#000',
-              aspectRatio: '4/3', position: 'relative',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            {capturedPhotoPreview ? (
-              <img
-                ref={capturedImgRef}
-                src={capturedPhotoPreview}
-                alt="Captured ID"
+        <div
+          style={{
+            border: '2px solid #CBD5E1',
+            borderRadius: 12, overflow: 'hidden',
+            background: '#000',
+            aspectRatio: '4/3', position: 'relative',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {capturedPhotoPreview ? (
+            <img
+              ref={capturedImgRef}
+              src={capturedPhotoPreview}
+              alt="Captured ID"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : isCameraActive ? (
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
-            ) : isCameraActive ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  style={{
-                    position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
-                    background: 'rgba(255, 255, 255, 0.9)', border: 'none', borderRadius: '50%',
-                    width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', color: '#15803D', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                  }}
-                >
-                  <IoCamera size={20} />
-                </button>
-              </>
-            ) : (
-              <div
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 8, cursor: 'pointer', background: '#F8FAFC', width: '100%', height: '100%', justifyContent: 'center' }}
-                onClick={() => setIsCameraActive(true)}
+              <button
+                type="button"
+                onClick={capturePhoto}
+                style={{
+                  position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
+                  background: 'rgba(255, 255, 255, 0.9)', border: 'none', borderRadius: '50%',
+                  width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: '#15803D', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                }}
               >
-                <IoCamera size={22} style={{ color: '#94A3B8' }} />
-                <span style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center' }}>Tap to scan ID</span>
-              </div>
-            )}
-            
-            {/* Hidden canvas for image capture */}
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
-          </div>
+                <IoCamera size={20} />
+              </button>
+            </>
+          ) : (
+            <div
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 8, cursor: 'pointer', background: '#F8FAFC', width: '100%', height: '100%', justifyContent: 'center' }}
+              onClick={() => setIsCameraActive(true)}
+            >
+              <IoCamera size={22} style={{ color: '#94A3B8' }} />
+              <span style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center' }}>Tap to scan ID</span>
+            </div>
+          )}
+          
+          {/* Hidden canvas for image capture */}
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>
       </div>
 
@@ -351,23 +276,23 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
       ) : (
         <button
           type="button"
-          onClick={runFaceMatch}
-          disabled={!capturedPhotoPreview || !storedPhotoUrl || status === 'loading-models' || status === 'matching'}
+          onClick={runOcrMatch}
+          disabled={!capturedPhotoPreview || status === 'loading-models' || status === 'matching'}
           style={{
             width: '100%', padding: '14px', borderRadius: 14,
             border: 'none', fontSize: 15, fontWeight: 700,
-            background: (!capturedPhotoPreview || !storedPhotoUrl)
+            background: (!capturedPhotoPreview)
               ? '#E2E8F0'
               : 'linear-gradient(135deg, #15803D, #22C55E)',
-            color: (!capturedPhotoPreview || !storedPhotoUrl) ? '#94A3B8' : 'white',
-            cursor: (!capturedPhotoPreview || !storedPhotoUrl || status === 'loading-models' || status === 'matching') ? 'not-allowed' : 'pointer',
-            boxShadow: (!capturedPhotoPreview || !storedPhotoUrl) ? 'none' : '0 4px 14px rgba(21,128,61,0.25)',
+            color: (!capturedPhotoPreview) ? '#94A3B8' : 'white',
+            cursor: (!capturedPhotoPreview || status === 'loading-models' || status === 'matching') ? 'not-allowed' : 'pointer',
+            boxShadow: (!capturedPhotoPreview) ? 'none' : '0 4px 14px rgba(21,128,61,0.25)',
             transition: 'all 0.25s',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
         >
           {status === 'loading-models' || status === 'matching'
-            ? '🔍 Analyzing...'
+            ? '🔍 Reading text...'
             : capturedPhotoPreview
               ? '🔍 Verify My School ID'
               : '📷 Tap "Scan ID" above'}
