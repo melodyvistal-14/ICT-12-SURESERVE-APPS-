@@ -212,8 +212,8 @@ export default function RegisterPage({ defaultRole }) {
 
     const payload = {
       ...form,
-      // Students use their Student ID as username — no separate username needed
-      username: !isVendorRoute ? form.studentId.trim() : form.username,
+      // Students use Student ID as username; Vendors use their Passkey as username
+      username: !isVendorRoute ? form.studentId.trim() : form.vendorCode.trim(),
       role: initialRole,
       fullName: isVendorRoute ? form.fullName : `${form.firstName} ${form.lastName}`.trim(),
       gradeSection: calculatedGradeSection,
@@ -367,10 +367,7 @@ export default function RegisterPage({ defaultRole }) {
           </>
         )}
 
-        {/* Username — only required for Vendors, Students use their Student ID */}
-        {isVendorRoute && (
-          <div className="input-group"><label>Username</label><input className="input" type="text" placeholder="Choose a username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required /></div>
-        )}
+        {/* No username field needed — Students use Student ID, Vendors use Passkey */}
 
         <div className="input-group">
           <label>Password</label>

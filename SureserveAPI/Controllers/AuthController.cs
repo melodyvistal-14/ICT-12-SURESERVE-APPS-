@@ -222,11 +222,37 @@ public class AuthController : ControllerBase
             request.Username = request.StudentId.Trim();
         }
 
+        // For vendors: use the Passkey code as their username (no separate username needed)
+        if (role == "Vendor")
+        {
+            var vendorCode = request.VendorCode?.Trim();
+            if (string.IsNullOrWhiteSpace(vendorCode))
+                return BadRequest(new { message = "Vendor Verification Passkey is required." });
+
+            // Validate the passkey exists and is not already used
+            var earlyPasskeyRecord = _context.VendorPasskeys.FirstOrDefault(p => p.Code == vendorCode);
+            if (earlyPasskeyRecord == null)
+            {
+                // Fallback: check system-wide passkey
+                var dbPasskey = _context.SystemSettings.FirstOrDefault(s => s.Key == "VendorPasskey")?.Value
+                    ?? _configuration["VendorSecurity:Passkey"] ?? "SURESERVE-VENDOR-2026";
+                if (!string.Equals(vendorCode, dbPasskey, StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { message = "Invalid Vendor Verification Passkey. Please ask the School Admin for your passkey." });
+            }
+            else if (earlyPasskeyRecord.IsUsed)
+            {
+                return BadRequest(new { message = "This Vendor Passkey has already been used by another vendor." });
+            }
+
+            // Use the Passkey itself as the vendor's username
+            request.Username = vendorCode;
+        }
+
         if (_context.Users.Any(u => u.Username == request.Username))
         {
             return role == "Student"
                 ? BadRequest(new { message = "A student account with this Student ID already exists. Each student can only have one account." })
-                : BadRequest(new { message = "Username already exists." });
+                : BadRequest(new { message = "This Vendor Passkey has already been registered." });
         }
 
         // For students: enforce one account per Student ID (belt-and-suspenders)
@@ -261,42 +287,22 @@ public class AuthController : ControllerBase
         if (role == "Vendor")
         {
             var vendorCode = request.VendorCode?.Trim();
-            if (string.IsNullOrWhiteSpace(vendorCode))
-            {
-                return BadRequest(new { message = "Vendor Verification Passkey is required." });
-            }
 
-            // Check individual passkeys table first
+            // Check individual passkeys table
             var passkeyRecord = _context.VendorPasskeys.FirstOrDefault(p => p.Code == vendorCode);
             var isPasskeyValid = false;
 
             if (passkeyRecord != null)
             {
-                if (passkeyRecord.IsUsed)
-                {
-                    return BadRequest(new { message = "This Vendor Passkey has already been used by another vendor." });
-                }
+                // Already validated above (not used), just mark it
                 isPasskeyValid = true;
                 passkeyRecord.IsUsed = true;
-                passkeyRecord.UsedByUsername = request.Username;
+                passkeyRecord.UsedByUsername = vendorCode; // passkey IS the username
             }
             else
             {
-                // Fallback check against default SystemSetting passkey
-                var dbPasskey = _context.SystemSettings.FirstOrDefault(s => s.Key == "VendorPasskey")?.Value;
-                var expectedPasskey = !string.IsNullOrWhiteSpace(dbPasskey)
-                    ? dbPasskey
-                    : (_configuration["VendorSecurity:Passkey"] ?? "SURESERVE-VENDOR-2026");
-
-                if (string.Equals(vendorCode, expectedPasskey, StringComparison.OrdinalIgnoreCase))
-                {
-                    isPasskeyValid = true;
-                }
-            }
-
-            if (!isPasskeyValid)
-            {
-                return BadRequest(new { message = "Invalid Vendor Verification Passkey. Please ask the School Admin for your passkey." });
+                // Fallback: system-wide passkey (already validated above)
+                isPasskeyValid = true;
             }
 
             var vendorProfile = new VendorProfile

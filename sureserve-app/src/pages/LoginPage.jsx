@@ -574,6 +574,17 @@ export default function LoginPage() {
                       <span>After credentials are verified, you'll be asked to scan your <strong>School ID card</strong> for identity confirmation.</span>
                     </div>
                   )}
+                  {loginRole === 'Vendor' && (
+                    <div style={{
+                      background: '#F0FDF4', border: '1px solid #BBF7D0',
+                      borderRadius: 10, padding: '10px 12px', marginBottom: 14,
+                      fontSize: 12, color: '#166534', fontWeight: 500,
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <IoStorefront size={16} style={{ flexShrink: 0 }} />
+                      <span>Use your assigned <strong>Vendor Passkey</strong> (e.g. SURESERVE-PASS-9081) as your login ID, then enter your password.</span>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
