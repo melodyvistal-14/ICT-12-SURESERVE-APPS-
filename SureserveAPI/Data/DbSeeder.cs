@@ -109,7 +109,7 @@ public static class DbSeeder
         if (!context.VendorPasskeys.Any())
         {
             context.VendorPasskeys.AddRange(
-                new VendorPasskey { Code = "SURESERVE-PASS-9081", Description = "For Stall 1 (Tia Mel's Canteen)", IsUsed = true, UsedByUsername = "vendor" },
+                new VendorPasskey { Code = "SURESERVE-PASS-9081", Description = "For Stall 1 (Tia Mel's Canteen)", IsUsed = true, UsedByUsername = "demovendor" },
                 new VendorPasskey { Code = "SURESERVE-PASS-4412", Description = "For Stall 2 (Snack Bar)", IsUsed = false },
                 new VendorPasskey { Code = "SURESERVE-PASS-7823", Description = "For Stall 3 (Beverage Corner)", IsUsed = false }
             );
@@ -133,7 +133,7 @@ public static class DbSeeder
             // Create Student Account
             var studentUser = new User
             {
-                Username = "demostudent",
+                Username = "2026-00125",
                 Password = "student123",
                 FullName = "Juan Dela Cruz",
                 Role = "Student",
