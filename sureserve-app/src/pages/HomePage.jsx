@@ -119,66 +119,93 @@ export default function HomePage() {
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16, paddingBottom: 24 }}>
-            {vendors.filter(v => v.shopName.toLowerCase().includes(search.toLowerCase())).map(vendor => (
-              <div
-                key={vendor.id}
-                onClick={() => handleSelectVendor(vendor.id)}
-                style={{
-                  background: 'white',
-                  borderRadius: 20,
-                  padding: '24px 16px',
-                  cursor: 'pointer',
-                  border: '1px solid var(--border)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  position: 'relative',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 12px 24px rgba(21, 128, 61, 0.12)';
-                  e.currentTarget.style.borderColor = 'var(--primary-light)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)';
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                }}
-              >
-                <div style={{
-                  width: 64, height: 64, borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  marginBottom: 16,
-                  boxShadow: '0 4px 12px rgba(21, 128, 61, 0.15)',
-                }}>
-                  <IoStorefront color="var(--primary-dark)" size={32} />
+            {vendors.filter(v => v.shopName.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
+              <div style={{
+                gridColumn: '1 / -1',
+                textAlign: 'center',
+                padding: '48px 20px',
+                background: 'var(--surface-hover)',
+                borderRadius: 20,
+                border: '1.5px dashed var(--border)',
+              }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🏪</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-dark)', marginBottom: 6 }}>
+                  {search ? 'No stalls match your search' : 'No Canteen Stalls Yet'}
                 </div>
-                <div style={{
-                  fontSize: 16, fontWeight: 800, color: 'var(--text-dark)',
-                  lineHeight: 1.2, marginBottom: 8,
-                }}>
-                  {vendor.shopName}
-                </div>
-                <div style={{
-                  background: 'var(--surface-hover)',
-                  color: 'var(--primary-dark)',
-                  padding: '4px 12px',
-                  borderRadius: 12,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  marginBottom: 8
-                }}>
-                  {vendor.itemCount} Menu Item{vendor.itemCount !== 1 ? 's' : ''}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4, opacity: 0.8 }}>
-                  {vendor.description || "Fresh and delicious school meals."}
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  {search ? `Try searching a different name.` : 'Canteen stalls will appear here once vendors register.'}
                 </div>
               </div>
-            ))}
+            ) : (
+              vendors.filter(v => v.shopName.toLowerCase().includes(search.toLowerCase())).map(vendor => (
+                <div
+                  key={vendor.id}
+                  onClick={() => handleSelectVendor(vendor.id)}
+                  style={{
+                    background: 'white',
+                    borderRadius: 20,
+                    padding: '24px 16px',
+                    cursor: 'pointer',
+                    border: '1px solid var(--border)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                    position: 'relative',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 12px 24px rgba(21, 128, 61, 0.12)';
+                    e.currentTarget.style.borderColor = 'var(--primary-light)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)';
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                  }}
+                >
+                  {vendor.logoUrl ? (
+                    <img
+                      src={vendor.logoUrl}
+                      alt={vendor.shopName}
+                      style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', marginBottom: 16, boxShadow: '0 4px 12px rgba(21,128,61,0.15)' }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 64, height: 64, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: 16,
+                      boxShadow: '0 4px 12px rgba(21, 128, 61, 0.15)',
+                    }}>
+                      <IoStorefront color="var(--primary-dark)" size={32} />
+                    </div>
+                  )}
+                  <div style={{
+                    fontSize: 16, fontWeight: 800, color: 'var(--text-dark)',
+                    lineHeight: 1.2, marginBottom: 8,
+                  }}>
+                    {vendor.shopName}
+                  </div>
+                  <div style={{
+                    background: 'var(--surface-hover)',
+                    color: 'var(--primary-dark)',
+                    padding: '4px 12px',
+                    borderRadius: 12,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    marginBottom: 8
+                  }}>
+                    {vendor.itemCount} Menu Item{vendor.itemCount !== 1 ? 's' : ''}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4, opacity: 0.8 }}>
+                    {vendor.description || "Fresh and delicious school meals."}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
 

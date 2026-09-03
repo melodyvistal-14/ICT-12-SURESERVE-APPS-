@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   IoLogOut,
-  IoPersonCircle,
   IoSchool,
   IoLocation,
   IoCard,
@@ -128,12 +127,44 @@ export default function ProfilePage() {
       {/* Profile Header */}
       <div style={{ padding: '32px 0 24px', textAlign: 'center', position: 'relative', background: 'linear-gradient(to bottom, var(--surface-hover), transparent)' }}>
         <div style={{ position: 'relative', display: 'inline-block' }}>
-          {vendorInfo?.logoUrl ? (
-            <img src={vendorInfo.logoUrl} alt="Logo" style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+          {isStudent ? (
+            /* Student: initials avatar */
+            <div style={{
+              width: 90, height: 90, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #15803D 0%, #166534 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '4px solid #fff', boxShadow: '0 4px 12px rgba(22,101,52,0.2)',
+              fontSize: 32, fontWeight: 800, color: 'white', letterSpacing: '-1px',
+            }}>
+              {(profileData?.fullName || user?.fullName || 'S').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+            </div>
+          ) : vendorInfo?.logoUrl ? (
+            /* Vendor: stall logo */
+            <img src={vendorInfo.logoUrl} alt="Stall Logo" style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
           ) : (
-            <IoPersonCircle size={90} color="var(--primary)" style={{ opacity: 0.9, filter: 'drop-shadow(0 4px 8px rgba(22, 101, 52, 0.15))' }} />
+            /* Vendor: default stall icon */
+            <div style={{
+              width: 90, height: 90, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '4px solid #fff', boxShadow: '0 4px 12px rgba(22,101,52,0.15)',
+            }}>
+              <IoStorefront size={42} color="#15803D" />
+            </div>
           )}
         </div>
+
+        {/* Stall name below avatar for vendors */}
+        {!isStudent && vendorInfo?.shopName && (
+          <div style={{
+            marginTop: 6, fontSize: 13, fontWeight: 700, color: '#15803D',
+            background: '#F0FDF4', border: '1px solid #BBF7D0',
+            borderRadius: 8, display: 'inline-block', padding: '3px 12px',
+          }}>
+            🏪 {vendorInfo.shopName}
+          </div>
+        )}
+
         <h2 style={{ marginTop: 10, fontSize: 22, fontWeight: 800 }}>{profileData?.fullName || user?.fullName}</h2>
         <p className="text-muted" style={{ fontSize: 13, marginTop: 2 }}>@{profileData?.username || user?.username}</p>
         <div style={{ marginTop: 8 }}>
