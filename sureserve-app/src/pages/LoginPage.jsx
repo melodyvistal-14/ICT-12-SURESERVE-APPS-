@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   IoSchool, IoEye, IoEyeOff, IoStorefront, IoFastFoodOutline,
-  IoChevronBack, IoIdCard, IoCloudUpload, IoCheckmarkCircle,
+  IoChevronBack, IoIdCard, IoCamera, IoCheckmarkCircle,
   IoCloseCircle, IoWarning, IoRefresh,
 } from 'react-icons/io5';
 import CanteenIllustration from '../components/CanteenIllustration';
@@ -12,14 +12,17 @@ import api from '../services/api';
 // ── Face verification step ──────────────────────────────────────────────────
 function IdVerificationStep({ username, password, onSuccess, onCancel }) {
   const [storedPhotoUrl, setStoredPhotoUrl] = useState(null);
-  const [uploadedPhotoFile, setUploadedPhotoFile] = useState(null);
-  const [uploadedPhotoPreview, setUploadedPhotoPreview] = useState(null);
+  const [capturedPhotoPreview, setCapturedPhotoPreview] = useState(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading-models | matching | matched | failed | error
   const [message, setMessage] = useState('');
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef(null);
+  
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const storedImgRef = useRef(null);
-  const uploadedImgRef = useRef(null);
+  const capturedImgRef = useRef(null);
+  const streamRef = useRef(null);
 
   // Load stored photo URL on mount
   useEffect(() => {
@@ -39,27 +42,62 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
     })();
   }, [username, password]);
 
-  const handlePhotoSelect = (file) => {
-    if (!file) return;
-    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
-      setMessage('Please upload a JPG, PNG, or WEBP image.');
-      return;
+  // Setup camera stream
+  useEffect(() => {
+    if (isCameraActive && !capturedPhotoPreview) {
+      setCameraError('');
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play();
+          }
+        })
+        .catch(err => {
+          console.error('Camera error:', err);
+          setCameraError('Unable to access camera. Please allow camera permissions.');
+          setIsCameraActive(false);
+        });
     }
-    setUploadedPhotoFile(file);
-    setUploadedPhotoPreview(URL.createObjectURL(file));
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [isCameraActive, capturedPhotoPreview]);
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      setCapturedPhotoPreview(dataUrl);
+      setIsCameraActive(false);
+      setStatus('idle');
+      setMessage('');
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    }
+  };
+
+  const retakePhoto = () => {
+    setCapturedPhotoPreview(null);
+    setIsCameraActive(true);
     setStatus('idle');
     setMessage('');
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handlePhotoSelect(file);
-  };
-
   const runFaceMatch = async () => {
-    if (!uploadedPhotoPreview || !storedPhotoUrl) return;
+    if (!capturedPhotoPreview || !storedPhotoUrl) return;
 
     setStatus('loading-models');
     setMessage('Loading face recognition models...');
@@ -79,16 +117,16 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
       const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 });
 
       const storedImg = storedImgRef.current;
-      const uploadedImg = uploadedImgRef.current;
+      const capturedImg = capturedImgRef.current;
 
-      if (!storedImg || !uploadedImg) {
+      if (!storedImg || !capturedImg) {
         throw new Error('Images not ready. Please try again.');
       }
 
       // Get face descriptors from both images
       const [desc1, desc2] = await Promise.all([
         faceapi.detectSingleFace(storedImg, opts).withFaceLandmarks().withFaceDescriptor(),
-        faceapi.detectSingleFace(uploadedImg, opts).withFaceLandmarks().withFaceDescriptor(),
+        faceapi.detectSingleFace(capturedImg, opts).withFaceLandmarks().withFaceDescriptor(),
       ]);
 
       if (!desc1) {
@@ -98,7 +136,7 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
       }
       if (!desc2) {
         setStatus('failed');
-        setMessage('⚠️ No face detected in your uploaded photo. Please try a clearer photo of your School ID card.');
+        setMessage('⚠️ No face detected in the scanned ID. Please ensure the face is visible and try again.');
         return;
       }
 
@@ -111,7 +149,7 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
         setMessage(`✅ Identity verified! (Match confidence: ${Math.round((1 - distance) * 100)}%)`);
       } else {
         setStatus('failed');
-        setMessage(`❌ Face mismatch detected. The uploaded photo does not match your registered School ID. (Distance: ${distance.toFixed(2)})`);
+        setMessage(`❌ Face mismatch detected. The scanned ID does not match your registered School ID. (Distance: ${distance.toFixed(2)})`);
       }
     } catch (err) {
       setStatus('error');
@@ -129,13 +167,22 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
     }
   };
 
+  // Clean up camera when navigating away
+  const handleCancel = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    onCancel();
+  };
+
   return (
     <div style={{ animation: 'slideUp 0.3s ease' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={handleCancel}
           style={{
             background: '#F1F5F9', border: 'none', borderRadius: '50%',
             width: 34, height: 34, display: 'flex', alignItems: 'center',
@@ -157,7 +204,7 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
       </div>
 
       <p style={{ fontSize: 13, color: '#475569', textAlign: 'center', marginBottom: 20, lineHeight: 1.5 }}>
-        Upload a photo of your <strong>School ID card</strong>. Our system will automatically verify your identity using face recognition.
+        Scan your <strong>School ID card</strong>. Our system will automatically verify your identity using face recognition.
       </p>
 
       {/* Side-by-side comparison */}
@@ -165,7 +212,7 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
         {/* Stored ID photo */}
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Your Registered ID
+            Registered ID
           </div>
           <div style={{
             border: '2px solid #E2E8F0', borderRadius: 12, overflow: 'hidden',
@@ -186,49 +233,74 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
           </div>
         </div>
 
-        {/* Uploaded photo */}
+        {/* Camera feed or captured photo */}
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Your Current ID
+            Scan ID
           </div>
           <div
             style={{
-              border: dragOver ? '2px dashed #15803D' : '2px dashed #CBD5E1',
+              border: '2px solid #CBD5E1',
               borderRadius: 12, overflow: 'hidden',
-              background: dragOver ? '#F0FDF4' : '#F8FAFC',
-              aspectRatio: '4/3', cursor: 'pointer',
+              background: '#000',
+              aspectRatio: '4/3', position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.2s',
             }}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
           >
-            {uploadedPhotoPreview ? (
+            {capturedPhotoPreview ? (
               <img
-                ref={uploadedImgRef}
-                src={uploadedPhotoPreview}
-                alt="Uploaded ID"
+                ref={capturedImgRef}
+                src={capturedPhotoPreview}
+                alt="Captured ID"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
+            ) : isCameraActive ? (
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <button
+                  type="button"
+                  onClick={capturePhoto}
+                  style={{
+                    position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
+                    background: 'rgba(255, 255, 255, 0.9)', border: 'none', borderRadius: '50%',
+                    width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: '#15803D', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  }}
+                >
+                  <IoCamera size={20} />
+                </button>
+              </>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 8 }}>
-                <IoCloudUpload size={22} style={{ color: '#94A3B8' }} />
-                <span style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center' }}>Tap to upload</span>
+              <div
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 8, cursor: 'pointer', background: '#F8FAFC', width: '100%', height: '100%', justifyContent: 'center' }}
+                onClick={() => setIsCameraActive(true)}
+              >
+                <IoCamera size={22} style={{ color: '#94A3B8' }} />
+                <span style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center' }}>Tap to scan ID</span>
               </div>
             )}
+            
+            {/* Hidden canvas for image capture */}
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
           </div>
         </div>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/jpg,image/png,image/webp"
-        style={{ display: 'none' }}
-        onChange={(e) => handlePhotoSelect(e.target.files?.[0])}
-      />
+      {cameraError && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, marginBottom: 14,
+          background: '#FEF2F2', color: '#DC2626', display: 'flex', alignItems: 'flex-start', gap: 8,
+        }}>
+          <IoWarning size={16} style={{ flexShrink: 0 }} />
+          <span>{cameraError}</span>
+        </div>
+      )}
 
       {/* Status message */}
       {message && (
@@ -266,12 +338,7 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
       ) : status === 'failed' || status === 'error' ? (
         <button
           type="button"
-          onClick={() => {
-            setUploadedPhotoFile(null);
-            setUploadedPhotoPreview(null);
-            setStatus('idle');
-            setMessage('');
-          }}
+          onClick={retakePhoto}
           style={{
             width: '100%', padding: '14px', borderRadius: 14,
             border: 'none', cursor: 'pointer', fontSize: 15, fontWeight: 700,
@@ -279,31 +346,31 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
         >
-          <IoRefresh size={18} /> Try Again
+          <IoRefresh size={18} /> Retake ID Scan
         </button>
       ) : (
         <button
           type="button"
           onClick={runFaceMatch}
-          disabled={!uploadedPhotoPreview || !storedPhotoUrl || status === 'loading-models' || status === 'matching'}
+          disabled={!capturedPhotoPreview || !storedPhotoUrl || status === 'loading-models' || status === 'matching'}
           style={{
             width: '100%', padding: '14px', borderRadius: 14,
             border: 'none', fontSize: 15, fontWeight: 700,
-            background: (!uploadedPhotoPreview || !storedPhotoUrl)
+            background: (!capturedPhotoPreview || !storedPhotoUrl)
               ? '#E2E8F0'
               : 'linear-gradient(135deg, #15803D, #22C55E)',
-            color: (!uploadedPhotoPreview || !storedPhotoUrl) ? '#94A3B8' : 'white',
-            cursor: (!uploadedPhotoPreview || !storedPhotoUrl || status === 'loading-models' || status === 'matching') ? 'not-allowed' : 'pointer',
-            boxShadow: (!uploadedPhotoPreview || !storedPhotoUrl) ? 'none' : '0 4px 14px rgba(21,128,61,0.25)',
+            color: (!capturedPhotoPreview || !storedPhotoUrl) ? '#94A3B8' : 'white',
+            cursor: (!capturedPhotoPreview || !storedPhotoUrl || status === 'loading-models' || status === 'matching') ? 'not-allowed' : 'pointer',
+            boxShadow: (!capturedPhotoPreview || !storedPhotoUrl) ? 'none' : '0 4px 14px rgba(21,128,61,0.25)',
             transition: 'all 0.25s',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}
         >
           {status === 'loading-models' || status === 'matching'
             ? '🔍 Analyzing...'
-            : uploadedPhotoPreview
+            : capturedPhotoPreview
               ? '🔍 Verify My School ID'
-              : '📸 Upload Your School ID First'}
+              : '📷 Tap "Scan ID" above'}
         </button>
       )}
     </div>
