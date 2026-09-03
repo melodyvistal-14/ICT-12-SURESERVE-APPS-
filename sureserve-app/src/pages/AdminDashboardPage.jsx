@@ -41,6 +41,9 @@ export default function AdminDashboardPage() {
   const [vendorProducts, setVendorProducts] = useState(null);
   const [viewingVendor, setViewingVendor] = useState(null);
 
+  // View Student Orders state
+  const [viewingStudentOrders, setViewingStudentOrders] = useState(null);
+
   const fetchStats = async () => {
     try {
       const res = await api.get('/admin/stats');
@@ -865,7 +868,15 @@ export default function AdminDashboardPage() {
                                 </div>
                               )}
                             </td>
-                            <td>
+                            <td style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                className="btn-action"
+                                onClick={() => setViewingStudentOrders(student)}
+                                title="View Student Orders"
+                                style={{ background: '#EFF6FF', color: '#1D4ED8', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                              >
+                                <IoReceipt size={14} /> Orders
+                              </button>
                               <button
                                 className="btn-action btn-action-delete"
                                 onClick={() => setStudentToDelete(student)}
@@ -927,7 +938,15 @@ export default function AdminDashboardPage() {
                           </div>
                         </div>
 
-                        <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                        <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 10, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                          <button
+                            className="btn-action"
+                            onClick={() => setViewingStudentOrders(student)}
+                            title="View Student Orders"
+                            style={{ background: '#EFF6FF', color: '#1D4ED8', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <IoReceipt size={14} /> Orders
+                          </button>
                           <button
                             className="btn-action btn-action-delete"
                             onClick={() => setStudentToDelete(student)}
@@ -1019,7 +1038,15 @@ export default function AdminDashboardPage() {
                                         </div>
                                       )}
                                     </td>
-                                    <td style={{ padding: '10px 16px' }}>
+                                    <td style={{ padding: '10px 16px', display: 'flex', gap: 6 }}>
+                                      <button
+                                        className="btn-action"
+                                        onClick={() => setViewingStudentOrders(student)}
+                                        title="View Student Orders"
+                                        style={{ background: '#EFF6FF', color: '#1D4ED8', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                                      >
+                                        <IoReceipt size={12} /> Orders
+                                      </button>
                                       <button
                                         className="btn-action btn-action-delete"
                                         onClick={() => setStudentToDelete(student)}
@@ -1348,6 +1375,83 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM VIEW STUDENT ORDERS POPUP DIALOG */}
+      {viewingStudentOrders && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(5px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: 20, animation: 'fadeIn 0.2s ease'
+        }}>
+          <div style={{
+            background: '#F8FAFC', borderRadius: 24, padding: 28, width: '100%',
+            maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
+            animation: 'scaleIn 0.25s ease', border: '1px solid #E2E8F0'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                🎓 {viewingStudentOrders.fullName}'s Orders
+              </h3>
+              <button
+                onClick={() => setViewingStudentOrders(null)}
+                style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#64748B' }}
+              >×</button>
+            </div>
+
+            {(() => {
+              const studentOrders = adminOrders.filter(o => o.studentUsername === viewingStudentOrders.username);
+              
+              if (studentOrders.length === 0) {
+                return <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>This student has not placed any orders yet.</div>;
+              }
+              
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {studentOrders.map(order => {
+                    const isCancelled = order.status === 'Cancelled';
+                    const statusColors = {
+                      Pending: { bg: '#FEF3C7', color: '#92400E', border: '#F59E0B' },
+                      Preparing: { bg: '#DBEAFE', color: '#1E40AF', border: '#3B82F6' },
+                      Ready: { bg: '#DCFCE7', color: '#166534', border: '#22C55E' },
+                      Completed: { bg: '#F0FDF4', color: '#166534', border: '#86EFAC' },
+                      Cancelled: { bg: '#FEE2E2', color: '#DC2626', border: '#EF4444' },
+                    };
+                    const sc = statusColors[order.status] || statusColors.Pending;
+                    
+                    return (
+                      <div key={order.id} style={{ background: 'white', borderRadius: 16, border: `1px solid ${isCancelled ? '#FECACA' : '#E2E8F0'}`, padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                          <div>
+                            <span style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>{order.orderNumber}</span>
+                            <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 8 }}>
+                              {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>
+                            {order.status}
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 8, background: '#F8FAFC', padding: 10, borderRadius: 10 }}>
+                          {order.items?.map((item, idx) => (
+                            <div key={idx} style={{ fontSize: 12, padding: '2px 0', color: '#475569' }}>
+                              • {item.itemName} <strong>x{item.quantity}</strong> — ₱{(item.price * item.quantity).toFixed(2)}
+                              <span style={{ color: '#166534', marginLeft: 6, fontSize: 10, fontWeight: 700 }}>({item.stallName})</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', fontWeight: 800, fontSize: 15, color: '#166534' }}>
+                          Total: ₱{order.totalAmount?.toFixed(2)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
