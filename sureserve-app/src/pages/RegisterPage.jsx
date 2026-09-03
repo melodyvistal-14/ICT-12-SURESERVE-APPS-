@@ -212,6 +212,8 @@ export default function RegisterPage({ defaultRole }) {
 
     const payload = {
       ...form,
+      // Students use their Student ID as username — no separate username needed
+      username: !isVendorRoute ? form.studentId.trim() : form.username,
       role: initialRole,
       fullName: isVendorRoute ? form.fullName : `${form.firstName} ${form.lastName}`.trim(),
       gradeSection: calculatedGradeSection,
@@ -321,9 +323,14 @@ export default function RegisterPage({ defaultRole }) {
               onFileSelect={(f) => handleFileUpload(f, setProfilePhotoUrl, setProfilePhotoUploading)} 
             />
 
+            {/* School ID Upload — Strictly Required */}
+            <div style={{ background: '#FFF7ED', border: '2px solid #FB923C', borderRadius: 14, padding: '10px 14px', marginBottom: 8, fontSize: 12, color: '#9A3412', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <IoIdCard size={16} style={{ flexShrink: 0 }} />
+              <span>🚨 School ID Photo is <u>required</u> — registration will be declined without it. This is used for face verification every time you log in.</span>
+            </div>
             <ImageUploadBox 
               title="School ID Photo" 
-              subtitle="Required · Used for identity verification at login" 
+              subtitle="REQUIRED — No School ID = No Account" 
               icon={<IoIdCard size={20} />} 
               fileUrl={idPhotoUrl} 
               uploading={idPhotoUploading} 
@@ -360,7 +367,10 @@ export default function RegisterPage({ defaultRole }) {
           </>
         )}
 
-        <div className="input-group"><label>Username</label><input className="input" type="text" placeholder="Choose a username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required /></div>
+        {/* Username — only required for Vendors, Students use their Student ID */}
+        {isVendorRoute && (
+          <div className="input-group"><label>Username</label><input className="input" type="text" placeholder="Choose a username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required /></div>
+        )}
 
         <div className="input-group">
           <label>Password</label>

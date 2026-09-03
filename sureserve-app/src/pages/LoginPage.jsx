@@ -526,11 +526,11 @@ export default function LoginPage() {
 
                 <form onSubmit={(e) => handleLoginSubmit(e)}>
                   <div className="input-group">
-                    <label>{loginRole === 'Vendor' ? 'Vendor Passkey' : 'Student Username'}</label>
+                    <label>{loginRole === 'Vendor' ? 'Vendor Passkey' : 'Student ID Number'}</label>
                     <input
                       className="input"
                       type="text"
-                      placeholder={loginRole === 'Vendor' ? 'Enter your vendor passkey' : 'e.g. Student ID'}
+                      placeholder={loginRole === 'Vendor' ? 'Enter your vendor passkey' : 'e.g. 2026-00125'}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required

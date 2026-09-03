@@ -77,14 +77,20 @@ public class AuthController : ControllerBase
             }
         }
 
-        // 3. For students: return requiresIdVerification = true so the frontend triggers Step 2
+        // 3. For students: enforce School ID verification
         if (user.Role == "Student")
         {
             var hasIdPhoto = !string.IsNullOrWhiteSpace(user.StudentProfile?.StudentIdPhotoUrl);
+
+            // STRICT: if no ID photo on file, deny login entirely
+            if (!hasIdPhoto)
+            {
+                return Unauthorized(new { message = "Login declined: No School ID photo found for your account. Please contact the School Admin to update your account." });
+            }
+
             return Ok(new
             {
-                requiresIdVerification = hasIdPhoto,
-                // Pass a short-lived pre-auth token (same JWT) so Step 2 can call verify-id-photo
+                requiresIdVerification = true,
                 preAuthToken = GenerateJwtToken(user),
                 user = new { user.Id, user.Username, user.FullName, user.Role }
             });
@@ -192,8 +198,7 @@ public class AuthController : ControllerBase
     public IActionResult Register([FromBody] RegisterRequest request)
     {
         // 1. Inappropriate Name Validation
-        if (IsInappropriate(request.Username) || 
-            IsInappropriate(request.FirstName) || 
+        if (IsInappropriate(request.FirstName) || 
             IsInappropriate(request.LastName) || 
             IsInappropriate(request.FullName) ||
             IsInappropriate(request.ShopName))
@@ -201,18 +206,34 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Registration declined: The name provided contains inappropriate language or restricted terms." });
         }
 
-        if (_context.Users.Any(u => u.Username == request.Username))
-        {
-            return BadRequest(new { message = "Username already exists" });
-        }
-
         var role = string.Equals(request.Role, "Vendor", StringComparison.OrdinalIgnoreCase) ? "Vendor" : "Student";
 
-        // For students: enforce one account per Student ID
-        if (role == "Student" && !string.IsNullOrWhiteSpace(request.StudentId))
+        // For students: use Student ID as their username (no separate username needed)
+        if (role == "Student")
+        {
+            if (string.IsNullOrWhiteSpace(request.StudentId))
+                return BadRequest(new { message = "Student ID Number is required." });
+
+            // STRICT: School ID photo is mandatory for students
+            if (string.IsNullOrWhiteSpace(request.StudentIdPhotoUrl))
+                return BadRequest(new { message = "Registration declined: You must upload your School ID photo to register. This is required for identity verification." });
+
+            // Use Student ID as the username
+            request.Username = request.StudentId.Trim();
+        }
+
+        if (_context.Users.Any(u => u.Username == request.Username))
+        {
+            return role == "Student"
+                ? BadRequest(new { message = "A student account with this Student ID already exists. Each student can only have one account." })
+                : BadRequest(new { message = "Username already exists." });
+        }
+
+        // For students: enforce one account per Student ID (belt-and-suspenders)
+        if (role == "Student")
         {
             var studentIdAlreadyUsed = _context.StudentProfiles
-                .Any(sp => sp.StudentId == request.StudentId.Trim());
+                .Any(sp => sp.StudentId == request.StudentId!.Trim());
             if (studentIdAlreadyUsed)
             {
                 return BadRequest(new { message = "A student account with this Student ID already exists. Each student can only have one account." });
