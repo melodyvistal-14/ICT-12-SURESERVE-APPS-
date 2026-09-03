@@ -37,6 +37,10 @@ export default function AdminDashboardPage() {
   const [adminOrderFilter, setAdminOrderFilter] = useState('All');
   const [loadingOrders, setLoadingOrders] = useState(false);
 
+  // Vendor Products state
+  const [vendorProducts, setVendorProducts] = useState(null);
+  const [viewingVendor, setViewingVendor] = useState(null);
+
   const fetchStats = async () => {
     try {
       const res = await api.get('/admin/stats');
@@ -168,6 +172,18 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleViewVendorProducts = async (vendor) => {
+    setViewingVendor(vendor);
+    try {
+      // The menuitems endpoint expects vendorId query param
+      const res = await api.get(`/menuitems?vendorId=${vendor.id || vendor.vendorProfileId}`);
+      setVendorProducts(res.data);
+    } catch (err) {
+      console.error(err);
+      setVendorProducts([]);
+    }
+  };
+
   const [stallToDelete, setStallToDelete] = useState(null);
   const [studentToDelete, setStudentToDelete] = useState(null);
 
@@ -219,6 +235,15 @@ export default function AdminDashboardPage() {
 
     return (
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <button
+          className="btn-action"
+          onClick={() => handleViewVendorProducts(vendor)}
+          title="View Products"
+          style={{ background: '#EFF6FF', color: '#1D4ED8', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+        >
+          <IoFastFoodOutline size={14} /> Products
+        </button>
+
         {!isActive ? (
           <button
             className="btn-action btn-action-activate"
@@ -452,30 +477,6 @@ export default function AdminDashboardPage() {
                   {stats?.totalVendors || 0}
                 </div>
                 <span style={{ fontSize: 11, color: '#64748B' }}>Active vendor stalls</span>
-              </div>
-
-              {/* Total Orders */}
-              <div style={{ background: 'white', padding: 18, borderRadius: 18, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#D97706', marginBottom: 8 }}>
-                  <IoReceipt size={24} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>TOTAL ORDERS</span>
-                </div>
-                <div style={{ fontSize: 26, fontWeight: 900, color: '#0F172A' }}>
-                  {stats?.totalOrders || 0}
-                </div>
-                <span style={{ fontSize: 11, color: '#64748B' }}>Canteen food reservations</span>
-              </div>
-
-              {/* Total Revenue */}
-              <div style={{ background: 'white', padding: 18, borderRadius: 18, border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#059669', marginBottom: 8 }}>
-                  <IoCash size={24} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>CANTEEN SALES</span>
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 900, color: '#059669' }}>
-                  ₱{stats?.totalRevenue ? stats.totalRevenue.toFixed(2) : '0.00'}
-                </div>
-                <span style={{ fontSize: 11, color: '#64748B' }}>Processed school revenue</span>
               </div>
             </div>
 
@@ -1300,6 +1301,53 @@ export default function AdminDashboardPage() {
                 Yes, Delete Account 🗑️
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM VENDOR PRODUCTS POPUP DIALOG */}
+      {viewingVendor && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(5px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: 20, animation: 'fadeIn 0.2s ease'
+        }}>
+          <div style={{
+            background: 'white', borderRadius: 24, padding: 28, width: '100%',
+            maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
+            animation: 'scaleIn 0.25s ease'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                🏪 {viewingVendor.shopName} Products
+              </h3>
+              <button
+                onClick={() => { setViewingVendor(null); setVendorProducts(null); }}
+                style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#64748B' }}
+              >×</button>
+            </div>
+
+            {!vendorProducts ? (
+              <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner" /></div>
+            ) : vendorProducts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>This vendor has not added any products yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+                {vendorProducts.map(p => (
+                  <div key={p.id} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div style={{ width: 50, height: 50, borderRadius: 8, background: '#F1F5F9', overflow: 'hidden', flexShrink: 0 }}>
+                       {p.imageUrl ? <img src={p.imageUrl} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IoFastFoodOutline size={24} style={{ margin: 13, color: '#94A3B8' }} />}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#0F172A', lineHeight: 1.2 }}>{p.name}</div>
+                      <div style={{ fontSize: 12, color: '#166534', fontWeight: 800, marginTop: 4 }}>₱{p.price.toFixed(2)}</div>
+                      <div style={{ fontSize: 11, color: p.isAvailable ? '#2563EB' : '#DC2626', fontWeight: 600 }}>{p.isAvailable ? 'Available' : 'Unavailable'}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
