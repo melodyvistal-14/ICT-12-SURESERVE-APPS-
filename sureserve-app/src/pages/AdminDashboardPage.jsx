@@ -48,51 +48,17 @@ export default function AdminDashboardPage() {
 
   const handleOpenStudentOrders = async (student) => {
     setViewingStudentOrders(student);
-
-    // 1. If orders were already included in the student record from /admin/students, display them immediately!
-    if (student.orders && student.orders.length > 0) {
-      setStudentSpecificOrders(student.orders);
-      setLoadingStudentOrders(false);
-    } else {
-      setStudentSpecificOrders(null);
-      setLoadingStudentOrders(true);
-    }
+    setStudentSpecificOrders(null);
+    setLoadingStudentOrders(true);
 
     try {
       const res = await api.get(`/admin/students/${student.id}/orders`);
-      if (res.data && res.data.length > 0) {
-        setStudentSpecificOrders(res.data);
-      } else if (!student.orders || student.orders.length === 0) {
-        // Fallback: match from adminOrders or query /admin/orders
-        try {
-          const fallbackRes = await api.get('/admin/orders');
-          const list = (fallbackRes.data || []).filter(o =>
-            o.userId === student.id ||
-            (o.studentUsername && o.studentUsername.toLowerCase() === (student.username || '').toLowerCase()) ||
-            (o.studentId && o.studentId === student.studentId) ||
-            (o.studentName && o.studentName.toLowerCase() === (student.fullName || '').toLowerCase())
-          );
-          if (list.length > 0) setStudentSpecificOrders(list);
-          else if (student.orders) setStudentSpecificOrders(student.orders);
-          else setStudentSpecificOrders([]);
-        } catch (e) {
-          if (student.orders) setStudentSpecificOrders(student.orders);
-          else setStudentSpecificOrders([]);
-        }
-      }
+      setStudentSpecificOrders(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.warn('Direct student orders endpoint error, using local student orders:', err);
-      if (student.orders) {
-        setStudentSpecificOrders(student.orders);
-      } else {
-        const list = (adminOrders || []).filter(o =>
-          o.userId === student.id ||
-          (o.studentUsername && o.studentUsername.toLowerCase() === (student.username || '').toLowerCase()) ||
-          (o.studentId && o.studentId === student.studentId) ||
-          (o.studentName && o.studentName.toLowerCase() === (student.fullName || '').toLowerCase())
-        );
-        setStudentSpecificOrders(list);
-      }
+      console.error('Failed to load student orders:', err);
+      // Fallback: filter from already-loaded adminOrders
+      const list = (adminOrders || []).filter(o => o.userId === student.id);
+      setStudentSpecificOrders(list);
     } finally {
       setLoadingStudentOrders(false);
     }

@@ -87,6 +87,8 @@ public class AdminController : ControllerBase
     [HttpGet("students")]
     public async Task<IActionResult> GetStudents()
     {
+        // NOTE: We avoid embedding Orders here because EF Core ignores .Include() chains
+        // when .Select() projections are used. Orders are fetched via the dedicated endpoint.
         var students = await _context.Users
             .Where(u => u.Role == "Student")
             .Include(u => u.StudentProfile)
@@ -113,24 +115,7 @@ public class AdminController : ControllerBase
                 Stalls = u.Orders.SelectMany(o => o.OrderItems)
                                  .Select(oi => oi.MenuItem.VendorProfile.ShopName)
                                  .Distinct()
-                                 .ToList(),
-                Orders = u.Orders.OrderByDescending(o => o.CreatedAt).Select(o => new
-                {
-                    o.Id,
-                    o.OrderNumber,
-                    o.Status,
-                    o.SubTotal,
-                    o.TotalAmount,
-                    o.CreatedAt,
-                    Items = o.OrderItems.Select(oi => new
-                    {
-                        oi.Id,
-                        ItemName = oi.MenuItem != null ? oi.MenuItem.Name : "Unknown Item",
-                        oi.Quantity,
-                        oi.Price,
-                        StallName = oi.MenuItem != null && oi.MenuItem.VendorProfile != null ? oi.MenuItem.VendorProfile.ShopName : "Unknown Stall"
-                    }).ToList()
-                }).ToList()
+                                 .ToList()
             })
             .ToListAsync();
 
@@ -587,44 +572,51 @@ public class VendorStatusRequest
     }
 
     /// <summary>
-    /// Get all orders for a specific student.
+    /// Get all orders for a specific student. Uses a 2-step query to avoid
+    /// EF Core ignoring .Include() chains inside .Select() projections.
     /// </summary>
     [HttpGet("students/{id}/orders")]
     public async Task<IActionResult> GetStudentOrders(int id)
     {
-        var orders = await _context.Orders
-            .Include(o => o.User)
-                .ThenInclude(u => u.StudentProfile)
-            .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.MenuItem)
-                    .ThenInclude(mi => mi.VendorProfile)
-            .Where(o => o.UserId == id || (o.User != null && o.User.StudentProfile != null && o.User.StudentProfile.Id == id))
+        // Step 1: Fetch all raw orders for this user ID
+        var rawOrders = await _context.Orders
+            .Where(o => o.UserId == id)
             .OrderByDescending(o => o.CreatedAt)
-            .Select(o => new
-            {
-                o.Id,
-                o.OrderNumber,
-                o.Status,
-                o.SubTotal,
-                o.TotalAmount,
-                o.CreatedAt,
-                UserId = o.UserId,
-                StudentName = o.User.FullName,
-                StudentId = o.User.StudentProfile != null ? o.User.StudentProfile.StudentId : "N/A",
-                StudentUsername = o.User.Username,
-                StudentRole = o.User.Role,
-                Items = o.OrderItems.Select(oi => new
-                {
-                    oi.Id,
-                    ItemName = oi.MenuItem != null ? oi.MenuItem.Name : "Unknown Item",
-                    oi.Quantity,
-                    oi.Price,
-                    StallName = oi.MenuItem != null && oi.MenuItem.VendorProfile != null ? oi.MenuItem.VendorProfile.ShopName : "Unknown Stall"
-                })
-            })
             .ToListAsync();
 
-        return Ok(orders);
+        if (!rawOrders.Any())
+            return Ok(new List<object>());
+
+        // Step 2: Fetch all order items for these orders, with full navigation chain
+        var orderIds = rawOrders.Select(o => o.Id).ToList();
+        var rawItems = await _context.OrderItems
+            .Include(oi => oi.MenuItem)
+                .ThenInclude(m => m.VendorProfile)
+            .Where(oi => orderIds.Contains(oi.OrderId))
+            .ToListAsync();
+
+        // Step 3: Build the result by joining in memory
+        var result = rawOrders.Select(o => new
+        {
+            id = o.Id,
+            orderNumber = o.OrderNumber,
+            status = o.Status,
+            subTotal = o.SubTotal,
+            totalAmount = o.TotalAmount,
+            createdAt = o.CreatedAt,
+            items = rawItems
+                .Where(oi => oi.OrderId == o.Id)
+                .Select(oi => new
+                {
+                    id = oi.Id,
+                    itemName = oi.MenuItem != null ? oi.MenuItem.Name : "Unknown Item",
+                    quantity = oi.Quantity,
+                    price = oi.Price,
+                    stallName = oi.MenuItem?.VendorProfile?.ShopName ?? "Unknown Stall"
+                }).ToList()
+        }).ToList();
+
+        return Ok(result);
     }
 
     /// <summary>
