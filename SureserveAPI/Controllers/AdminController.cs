@@ -477,6 +477,37 @@ public class AdminController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Get all products/menu items for a specific vendor by User ID or VendorProfile ID.
+    /// </summary>
+    [HttpGet("vendors/{id}/products")]
+    public async Task<IActionResult> GetVendorProducts(int id)
+    {
+        // Look up VendorProfile by UserId first, then by Profile ID as fallback
+        var vendorProfile = await _context.VendorProfiles
+            .Include(vp => vp.MenuItems)
+            .FirstOrDefaultAsync(vp => vp.UserId == id || vp.Id == id);
+
+        if (vendorProfile == null)
+            return Ok(new List<object>());
+
+        var items = vendorProfile.MenuItems
+            .OrderBy(mi => mi.Name)
+            .Select(mi => new
+            {
+                id = mi.Id,
+                name = mi.Name,
+                description = mi.Description,
+                price = mi.Price,
+                imageUrl = mi.ImageUrl,
+                isAvailable = mi.IsAvailable,
+                isSpecial = mi.IsSpecial,
+                stock = mi.Stock
+            }).ToList();
+
+        return Ok(items);
+    }
+
 public class VendorStatusRequest
 {
     public string Action { get; set; } = string.Empty;

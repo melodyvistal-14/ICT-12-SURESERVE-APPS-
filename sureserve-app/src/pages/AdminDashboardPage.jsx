@@ -197,12 +197,13 @@ export default function AdminDashboardPage() {
 
   const handleViewVendorProducts = async (vendor) => {
     setViewingVendor(vendor);
+    setVendorProducts(null);
     try {
-      // The menuitems endpoint expects vendorId query param which maps to VendorProfileId
-      const res = await api.get(`/menuitems?vendorId=${vendor.vendorProfileId || vendor.id}`);
-      setVendorProducts(res.data);
+      // Use dedicated admin endpoint — accepts User ID and resolves VendorProfileId internally
+      const res = await api.get(`/admin/vendors/${vendor.id}/products`);
+      setVendorProducts(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load vendor products:', err);
       setVendorProducts([]);
     }
   };
