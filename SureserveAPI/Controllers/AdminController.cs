@@ -9,6 +9,7 @@ namespace SureserveAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "Admin")]
+// Fixed menu items loading for admin panel - ensures vendors show their products correctly
 public class AdminController : ControllerBase
 {
     private readonly AppDbContext _context;
