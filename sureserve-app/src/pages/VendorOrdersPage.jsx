@@ -98,7 +98,41 @@ export default function VendorOrdersPage() {
                 padding: '8px 12px', background: 'var(--surface-hover)',
                 borderRadius: 'var(--radius-md)', marginBottom: 8, fontSize: 13,
               }}>
-                <span style={{ fontWeight: 600 }}>👤 {order.student?.fullName}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {order.student?.profileImageUrl ? (
+                    <img
+                      src={order.student.profileImageUrl}
+                      alt={order.student.fullName}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        border: '2px solid var(--primary)',
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
+                      color: '#15803D',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: 14,
+                      border: '2px solid var(--primary)',
+                    }}>
+                      {order.student?.fullName?.charAt(0) || '👤'}
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{order.student?.fullName}</div>
+                    <div className="text-muted" style={{ fontSize: 11 }}>{order.student?.studentId || 'Student ID'}</div>
+                  </div>
+                </div>
                 <span className="text-muted">{order.student?.gradeSection}</span>
               </div>
               <div className="order-items-preview" style={{ fontWeight: 500, fontSize: 14 }}>
