@@ -228,6 +228,19 @@ public class AdminController : ControllerBase
 
         foreach (var u in vendorUsers)
         {
+            // Ensure menu items are loaded
+            var menuItems = new List<MenuItem>();
+            if (u.VendorProfile != null)
+            {
+                if (!u.VendorProfile.MenuItems.Any())
+                {
+                    u.VendorProfile.MenuItems = await _context.MenuItems
+                        .Where(m => m.VendorProfileId == u.VendorProfile.Id)
+                        .ToListAsync();
+                }
+                menuItems = u.VendorProfile.MenuItems.ToList();
+            }
+
             result.Add(new
             {
                 id = u.Id,
@@ -247,13 +260,22 @@ public class AdminController : ControllerBase
                 age = u.VendorProfile != null ? u.VendorProfile.Age : 0,
                 birthday = u.VendorProfile != null ? u.VendorProfile.Birthday : "",
                 address = u.VendorProfile != null ? u.VendorProfile.Address : "",
-                itemCount = u.VendorProfile != null ? u.VendorProfile.MenuItems.Count : 0,
-                menuItems = u.VendorProfile != null ? MapMenuItems(u.VendorProfile.MenuItems) : new List<object>()
+                itemCount = menuItems.Count,
+                menuItems = MapMenuItems(menuItems)
             });
         }
 
         foreach (var vp in orphanProfiles)
         {
+            // Ensure menu items are loaded
+            var menuItems = vp.MenuItems.ToList();
+            if (!menuItems.Any())
+            {
+                menuItems = await _context.MenuItems
+                    .Where(m => m.VendorProfileId == vp.Id)
+                    .ToListAsync();
+            }
+
             result.Add(new
             {
                 id = vp.UserId > 0 ? vp.UserId : vp.Id,
@@ -269,8 +291,8 @@ public class AdminController : ControllerBase
                 age = vp.Age,
                 birthday = vp.Birthday,
                 address = vp.Address,
-                itemCount = vp.MenuItems.Count,
-                menuItems = MapMenuItems(vp.MenuItems)
+                itemCount = menuItems.Count,
+                menuItems = MapMenuItems(menuItems)
             });
         }
 
