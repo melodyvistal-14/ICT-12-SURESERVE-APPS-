@@ -43,6 +43,39 @@ export default function AdminDashboardPage() {
 
   // View Student Orders state
   const [viewingStudentOrders, setViewingStudentOrders] = useState(null);
+  const [studentSpecificOrders, setStudentSpecificOrders] = useState(null);
+  const [loadingStudentOrders, setLoadingStudentOrders] = useState(false);
+
+  const handleOpenStudentOrders = async (student) => {
+    setViewingStudentOrders(student);
+    setLoadingStudentOrders(true);
+    setStudentSpecificOrders(null);
+    try {
+      const res = await api.get(`/admin/students/${student.id}/orders`);
+      setStudentSpecificOrders(res.data || []);
+    } catch (err) {
+      console.warn('Direct student orders endpoint error, falling back to admin orders filter:', err);
+      try {
+        const fallbackRes = await api.get('/admin/orders');
+        const list = (fallbackRes.data || []).filter(o =>
+          o.userId === student.id ||
+          (o.studentUsername && o.studentUsername.toLowerCase() === (student.username || '').toLowerCase()) ||
+          (o.studentId && o.studentId === student.studentId)
+        );
+        setStudentSpecificOrders(list);
+      } catch (e) {
+        console.error(e);
+        const list = (adminOrders || []).filter(o =>
+          o.userId === student.id ||
+          (o.studentUsername && o.studentUsername.toLowerCase() === (student.username || '').toLowerCase()) ||
+          (o.studentId && o.studentId === student.studentId)
+        );
+        setStudentSpecificOrders(list);
+      }
+    } finally {
+      setLoadingStudentOrders(false);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -871,7 +904,7 @@ export default function AdminDashboardPage() {
                             <td style={{ display: 'flex', gap: 6 }}>
                               <button
                                 className="btn-action"
-                                onClick={() => setViewingStudentOrders(student)}
+                                onClick={() => handleOpenStudentOrders(student)}
                                 title="View Student Orders"
                                 style={{ background: '#EFF6FF', color: '#1D4ED8', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                               >
@@ -941,7 +974,7 @@ export default function AdminDashboardPage() {
                         <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 10, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                           <button
                             className="btn-action"
-                            onClick={() => setViewingStudentOrders(student)}
+                            onClick={() => handleOpenStudentOrders(student)}
                             title="View Student Orders"
                             style={{ background: '#EFF6FF', color: '#1D4ED8', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                           >
@@ -1041,7 +1074,7 @@ export default function AdminDashboardPage() {
                                     <td style={{ padding: '10px 16px', display: 'flex', gap: 6 }}>
                                       <button
                                         className="btn-action"
-                                        onClick={() => setViewingStudentOrders(student)}
+                                        onClick={() => handleOpenStudentOrders(student)}
                                         title="View Student Orders"
                                         style={{ background: '#EFF6FF', color: '#1D4ED8', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                                       >
@@ -1402,56 +1435,59 @@ export default function AdminDashboardPage() {
               >×</button>
             </div>
 
-            {(() => {
-              const studentOrders = adminOrders.filter(o => o.studentUsername === viewingStudentOrders.username);
-              
-              if (studentOrders.length === 0) {
-                return <div style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>This student has not placed any orders yet.</div>;
-              }
-              
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {studentOrders.map(order => {
-                    const isCancelled = order.status === 'Cancelled';
-                    const statusColors = {
-                      Pending: { bg: '#FEF3C7', color: '#92400E', border: '#F59E0B' },
-                      Preparing: { bg: '#DBEAFE', color: '#1E40AF', border: '#3B82F6' },
-                      Ready: { bg: '#DCFCE7', color: '#166534', border: '#22C55E' },
-                      Completed: { bg: '#F0FDF4', color: '#166534', border: '#86EFAC' },
-                      Cancelled: { bg: '#FEE2E2', color: '#DC2626', border: '#EF4444' },
-                    };
-                    const sc = statusColors[order.status] || statusColors.Pending;
-                    
-                    return (
-                      <div key={order.id} style={{ background: 'white', borderRadius: 16, border: `1px solid ${isCancelled ? '#FECACA' : '#E2E8F0'}`, padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                          <div>
-                            <span style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>{order.orderNumber}</span>
-                            <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 8 }}>
-                              {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>
-                            {order.status}
+            {loadingStudentOrders ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div className="spinner" style={{ margin: '0 auto 12px' }} />
+                <div style={{ color: '#64748B', fontSize: 13, fontWeight: 600 }}>Loading student orders...</div>
+              </div>
+            ) : !studentSpecificOrders || studentSpecificOrders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8' }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>📦</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#64748B' }}>No Orders Found</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>This student has not placed any orders yet.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {studentSpecificOrders.map(order => {
+                  const isCancelled = order.status === 'Cancelled';
+                  const statusColors = {
+                    Pending: { bg: '#FEF3C7', color: '#92400E', border: '#F59E0B' },
+                    Preparing: { bg: '#DBEAFE', color: '#1E40AF', border: '#3B82F6' },
+                    Ready: { bg: '#DCFCE7', color: '#166534', border: '#22C55E' },
+                    Completed: { bg: '#F0FDF4', color: '#166534', border: '#86EFAC' },
+                    Cancelled: { bg: '#FEE2E2', color: '#DC2626', border: '#EF4444' },
+                  };
+                  const sc = statusColors[order.status] || statusColors.Pending;
+                  
+                  return (
+                    <div key={order.id} style={{ background: 'white', borderRadius: 16, border: `1px solid ${isCancelled ? '#FECACA' : '#E2E8F0'}`, padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <div>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>{order.orderNumber}</span>
+                          <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 8 }}>
+                            {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <div style={{ marginBottom: 8, background: '#F8FAFC', padding: 10, borderRadius: 10 }}>
-                          {order.items?.map((item, idx) => (
-                            <div key={idx} style={{ fontSize: 12, padding: '2px 0', color: '#475569' }}>
-                              • {item.itemName} <strong>x{item.quantity}</strong> — ₱{(item.price * item.quantity).toFixed(2)}
-                              <span style={{ color: '#166534', marginLeft: 6, fontSize: 10, fontWeight: 700 }}>({item.stallName})</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', fontWeight: 800, fontSize: 15, color: '#166534' }}>
-                          Total: ₱{order.totalAmount?.toFixed(2)}
-                        </div>
+                        <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>
+                          {order.status}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+                      <div style={{ marginBottom: 8, background: '#F8FAFC', padding: 10, borderRadius: 10 }}>
+                        {order.items?.map((item, idx) => (
+                          <div key={idx} style={{ fontSize: 12, padding: '2px 0', color: '#475569' }}>
+                            • {item.itemName} <strong>x{item.quantity}</strong> — ₱{(item.price * item.quantity).toFixed(2)}
+                            <span style={{ color: '#166534', marginLeft: 6, fontSize: 10, fontWeight: 700 }}>({item.stallName})</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', fontWeight: 800, fontSize: 15, color: '#166534' }}>
+                        Total: ₱{order.totalAmount?.toFixed(2)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

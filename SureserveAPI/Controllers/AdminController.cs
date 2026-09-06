@@ -570,10 +570,51 @@ public class VendorStatusRequest
     }
 
     /// <summary>
+    /// Get all orders for a specific student.
+    /// </summary>
+    [HttpGet("students/{id}/orders")]
+    public async Task<IActionResult> GetStudentOrders(int id)
+    {
+        var orders = await _context.Orders
+            .Include(o => o.User)
+                .ThenInclude(u => u.StudentProfile)
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.MenuItem)
+                    .ThenInclude(mi => mi.VendorProfile)
+            .Where(o => o.UserId == id || (o.User != null && o.User.StudentProfile != null && o.User.StudentProfile.Id == id))
+            .OrderByDescending(o => o.CreatedAt)
+            .Select(o => new
+            {
+                o.Id,
+                o.OrderNumber,
+                o.Status,
+                o.SubTotal,
+                o.TotalAmount,
+                o.CreatedAt,
+                UserId = o.UserId,
+                StudentName = o.User.FullName,
+                StudentId = o.User.StudentProfile != null ? o.User.StudentProfile.StudentId : "N/A",
+                StudentUsername = o.User.Username,
+                StudentRole = o.User.Role,
+                Items = o.OrderItems.Select(oi => new
+                {
+                    oi.Id,
+                    ItemName = oi.MenuItem != null ? oi.MenuItem.Name : "Unknown Item",
+                    oi.Quantity,
+                    oi.Price,
+                    StallName = oi.MenuItem?.VendorProfile != null ? oi.MenuItem.VendorProfile.ShopName : "Unknown Stall"
+                })
+            })
+            .ToListAsync();
+
+        return Ok(orders);
+    }
+
+    /// <summary>
     /// Get all orders across all students for admin monitoring.
     /// </summary>
     [HttpGet("orders")]
-    public async Task<IActionResult> GetAllOrders([FromQuery] string? status)
+    public async Task<IActionResult> GetAllOrders([FromQuery] string? status, [FromQuery] int? userId)
     {
         var query = _context.Orders
             .Include(o => o.User)
@@ -582,6 +623,11 @@ public class VendorStatusRequest
                 .ThenInclude(oi => oi.MenuItem)
                     .ThenInclude(mi => mi.VendorProfile)
             .AsQueryable();
+
+        if (userId.HasValue && userId.Value > 0)
+        {
+            query = query.Where(o => o.UserId == userId.Value);
+        }
 
         if (!string.IsNullOrEmpty(status) && status.ToLower() != "all")
         {
@@ -608,6 +654,7 @@ public class VendorStatusRequest
             o.SubTotal,
             o.TotalAmount,
             o.CreatedAt,
+            UserId = o.UserId,
             StudentName = o.User.FullName,
             StudentId = o.User.StudentProfile != null ? o.User.StudentProfile.StudentId : "N/A",
             StudentUsername = o.User.Username,
