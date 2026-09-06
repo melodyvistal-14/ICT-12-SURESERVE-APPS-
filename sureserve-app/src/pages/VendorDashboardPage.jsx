@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IoRefresh, IoStorefront, IoChevronForward } from 'react-icons/io5';
+import { IoRefresh, IoStorefront, IoChevronForward, IoPencil, IoPerson } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
@@ -44,18 +44,127 @@ export default function VendorDashboardPage() {
 
   return (
     <div className="page" style={{ paddingBottom: 100 }}>
-      {/* Header */}
-      <div style={{ padding: '20px 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <IoStorefront size={24} color="var(--primary)" />
-            <h1 style={{ fontSize: 20 }}>Vendor Dashboard</h1>
-          </div>
-          <p className="text-muted" style={{ fontSize: 13, marginTop: 2 }}>{dashboard?.shopName || "Canteen Vendor"}</p>
+      {/* Vendor Stall Banner & Header */}
+      <div style={{
+        background: 'white',
+        borderRadius: 20,
+        overflow: 'hidden',
+        border: '1px solid var(--border)',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
+        marginBottom: 16,
+      }}>
+        {/* Stall Banner Image (Owner with Food) */}
+        <div style={{
+          width: '100%',
+          height: 120,
+          position: 'relative',
+          background: dashboard?.stallImageUrl
+            ? `url(${dashboard.stallImageUrl}) center/cover no-repeat`
+            : 'linear-gradient(135deg, #15803D 0%, #166534 100%)',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          padding: '12px 16px',
+        }}>
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 60%)'
+          }} />
+
+          <span style={{
+            position: 'relative', zIndex: 2,
+            background: 'rgba(255,255,255,0.95)',
+            color: '#15803D',
+            padding: '3px 10px',
+            borderRadius: 12,
+            fontSize: 11,
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4
+          }}>
+            <IoStorefront size={13} /> Active Canteen Stall
+          </span>
+
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={loadData}
+            style={{
+              position: 'relative', zIndex: 2,
+              background: 'rgba(255,255,255,0.9)',
+              padding: '6px', borderRadius: '50%',
+              color: '#15803D',
+            }}
+            title="Refresh dashboard"
+          >
+            <IoRefresh size={18} />
+          </button>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={loadData} style={{ padding: 8 }}>
-          <IoRefresh size={20} />
-        </button>
+
+        {/* Owner Info and Quick Edit */}
+        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Owner Face Avatar */}
+            {dashboard?.ownerProfileImageUrl || dashboard?.logoUrl ? (
+              <img
+                src={dashboard.ownerProfileImageUrl || dashboard.logoUrl}
+                alt={dashboard.ownerName || "Owner"}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid #15803D',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
+                color: '#15803D',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 800,
+                fontSize: 18,
+                border: '2px solid #15803D'
+              }}>
+                {(dashboard?.shopName || 'V').charAt(0).toUpperCase()}
+              </div>
+            )}
+
+            <div>
+              <h1 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-dark)', margin: 0 }}>
+                {dashboard?.shopName || "Vendor Dashboard"}
+              </h1>
+              <p className="text-muted" style={{ fontSize: 12, margin: '2px 0 0' }}>
+                {dashboard?.ownerName ? `Owner: ${dashboard.ownerName}` : 'Canteen Vendor'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate('/profile')}
+            style={{
+              background: '#F0FDF4',
+              border: '1px solid #BBF7D0',
+              color: '#15803D',
+              borderRadius: 10,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}
+          >
+            <IoPencil size={13} /> Edit Profile
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -115,14 +224,22 @@ export default function VendorDashboardPage() {
               className="card"
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: '20px', 
-                  background: 'var(--primary-light)', color: 'var(--primary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 700, fontSize: 14
-                }}>
-                  {order.student?.fullName?.charAt(0) || '👤'}
-                </div>
+                {order.student?.profileImageUrl ? (
+                  <img
+                    src={order.student.profileImageUrl}
+                    alt={order.student?.fullName || "Student"}
+                    style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '20px', 
+                    background: 'var(--primary-light)', color: 'var(--primary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 700, fontSize: 14
+                  }}>
+                    {order.student?.fullName?.charAt(0) || '👤'}
+                  </div>
+                )}
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{order.student?.fullName}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{order.orderNumber} • ₱{order.totalAmount?.toFixed(2)}</div>

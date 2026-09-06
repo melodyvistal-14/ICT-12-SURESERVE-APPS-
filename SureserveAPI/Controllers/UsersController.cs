@@ -48,16 +48,27 @@ public class UsersController : ControllerBase
             {
                 user.StudentProfile.StudentId,
                 user.StudentProfile.GradeSection,
+                user.StudentProfile.Strand,
                 user.StudentProfile.Building,
                 user.StudentProfile.Floor,
-                user.StudentProfile.Room
+                user.StudentProfile.Room,
+                user.StudentProfile.StudentIdPhotoUrl,
+                user.StudentProfile.Address,
+                user.StudentProfile.Birthday,
+                user.StudentProfile.Age
             },
             VendorProfile = user.VendorProfile == null ? null : new
             {
                 user.VendorProfile.ShopName,
                 user.VendorProfile.Description,
                 user.VendorProfile.LogoUrl,
-                user.VendorProfile.IsActive
+                user.VendorProfile.StallImageUrl,
+                user.VendorProfile.IsActive,
+                user.VendorProfile.Address,
+                user.VendorProfile.Birthday,
+                user.VendorProfile.Age,
+                user.VendorProfile.FirstName,
+                user.VendorProfile.LastName
             }
         });
     }
@@ -71,15 +82,16 @@ public class UsersController : ControllerBase
         var userId = GetUserId();
         var user = await _context.Users
             .Include(u => u.StudentProfile)
+            .Include(u => u.VendorProfile)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null)
             return NotFound(new { message = "User not found." });
 
-        if (request.FullName != null) user.FullName = request.FullName;
-        if (request.Email != null) user.Email = request.Email;
-        if (request.ContactNumber != null) user.ContactNumber = request.ContactNumber;
-        if (request.ProfileImageUrl != null) user.ProfileImageUrl = request.ProfileImageUrl;
+        if (request.FullName != null) user.FullName = request.FullName.Trim();
+        if (request.Email != null) user.Email = request.Email.Trim();
+        if (request.ContactNumber != null) user.ContactNumber = request.ContactNumber.Trim();
+        if (request.ProfileImageUrl != null) user.ProfileImageUrl = request.ProfileImageUrl.Trim();
 
         // Update student profile if applicable
         if (user.Role == "Student" && request.StudentInfo != null)
@@ -91,13 +103,36 @@ public class UsersController : ControllerBase
             }
 
             if (request.StudentInfo.GradeSection != null)
-                user.StudentProfile.GradeSection = request.StudentInfo.GradeSection;
+                user.StudentProfile.GradeSection = request.StudentInfo.GradeSection.Trim();
             if (request.StudentInfo.Building != null)
-                user.StudentProfile.Building = request.StudentInfo.Building;
+                user.StudentProfile.Building = request.StudentInfo.Building.Trim();
             if (request.StudentInfo.Floor != null)
-                user.StudentProfile.Floor = request.StudentInfo.Floor;
+                user.StudentProfile.Floor = request.StudentInfo.Floor.Trim();
             if (request.StudentInfo.Room != null)
-                user.StudentProfile.Room = request.StudentInfo.Room;
+                user.StudentProfile.Room = request.StudentInfo.Room.Trim();
+            if (request.StudentInfo.Address != null)
+                user.StudentProfile.Address = request.StudentInfo.Address.Trim();
+        }
+
+        // Update vendor profile if applicable
+        if (user.Role == "Vendor" && request.VendorInfo != null)
+        {
+            if (user.VendorProfile == null)
+            {
+                user.VendorProfile = new Models.VendorProfile { UserId = userId };
+                _context.VendorProfiles.Add(user.VendorProfile);
+            }
+
+            if (request.VendorInfo.ShopName != null)
+                user.VendorProfile.ShopName = request.VendorInfo.ShopName.Trim();
+            if (request.VendorInfo.Description != null)
+                user.VendorProfile.Description = request.VendorInfo.Description.Trim();
+            if (request.VendorInfo.LogoUrl != null)
+                user.VendorProfile.LogoUrl = request.VendorInfo.LogoUrl.Trim();
+            if (request.VendorInfo.StallImageUrl != null)
+                user.VendorProfile.StallImageUrl = request.VendorInfo.StallImageUrl.Trim();
+            if (request.VendorInfo.Address != null)
+                user.VendorProfile.Address = request.VendorInfo.Address.Trim();
         }
 
         await _context.SaveChangesAsync();
@@ -153,6 +188,7 @@ public class UpdateProfileRequest
     public string? ContactNumber { get; set; }
     public string? ProfileImageUrl { get; set; }
     public StudentInfoRequest? StudentInfo { get; set; }
+    public VendorInfoRequest? VendorInfo { get; set; }
 }
 
 public class StudentInfoRequest
@@ -161,4 +197,14 @@ public class StudentInfoRequest
     public string? Building { get; set; }
     public string? Floor { get; set; }
     public string? Room { get; set; }
+    public string? Address { get; set; }
+}
+
+public class VendorInfoRequest
+{
+    public string? ShopName { get; set; }
+    public string? Description { get; set; }
+    public string? LogoUrl { get; set; }
+    public string? StallImageUrl { get; set; }
+    public string? Address { get; set; }
 }

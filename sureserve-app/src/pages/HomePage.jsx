@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IoSearch, IoStar, IoFlame, IoStorefront, IoChevronBack } from 'react-icons/io5';
+import { IoSearch, IoStar, IoFlame, IoStorefront, IoChevronBack, IoPerson } from 'react-icons/io5';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import api from '../services/api';
@@ -85,22 +85,24 @@ export default function HomePage() {
     setSelectedCategory(null);
   };
 
-  const selectedVendorName = vendors.find(v => v.id === selectedVendor)?.shopName;
+  const activeVendor = vendors.find(v => v.id === selectedVendor);
 
   return (
-    <div className="page">
+    <div className="page" style={{ paddingBottom: 100 }}>
       {/* Greeting */}
-      <div style={{ padding: '20px 0 16px' }}>
-        <p className="text-muted" style={{ fontSize: 14 }}>Hello, {user?.fullName?.split(' ')[0]} 👋</p>
-        <h1 style={{ fontSize: 22 }}>
-          {!selectedVendor ? 'Where would you like to eat?' : `${selectedVendorName} Menu 🏪`}
-        </h1>
-      </div>
+      {!selectedVendor && (
+        <div style={{ padding: '20px 0 16px' }}>
+          <p className="text-muted" style={{ fontSize: 14 }}>Hello, {user?.fullName?.split(' ')[0]} 👋</p>
+          <h1 style={{ fontSize: 24, fontWeight: 800 }}>
+            Where would you like to eat?
+          </h1>
+        </div>
+      )}
 
       {!selectedVendor ? (
         <>
           {/* Main Home View - Stalls Grid */}
-          <div className="search-bar">
+          <div className="search-bar" style={{ marginBottom: 20 }}>
             <IoSearch className="search-icon" />
             <input
               placeholder="Search for a canteen stall..."
@@ -109,16 +111,15 @@ export default function HomePage() {
             />
           </div>
 
-
           {/* Vendor Stalls Grid */}
-          <div className="section-header" style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <IoStorefront color="var(--primary)" size={18} />
+          <div className="section-header" style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <IoStorefront color="var(--primary)" size={20} />
               <span className="section-title">Explore Canteen Stalls</span>
             </div>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16, paddingBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, paddingBottom: 24 }}>
             {vendors.filter(v => v.shopName.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
               <div style={{
                 gridColumn: '1 / -1',
@@ -144,15 +145,13 @@ export default function HomePage() {
                   style={{
                     background: 'white',
                     borderRadius: 20,
-                    padding: '24px 16px',
+                    overflow: 'hidden',
                     cursor: 'pointer',
                     border: '1px solid var(--border)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
                     transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
                     position: 'relative',
                   }}
                   onMouseEnter={(e) => {
@@ -162,71 +161,206 @@ export default function HomePage() {
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)';
+                    e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.04)';
                     e.currentTarget.style.borderColor = 'var(--border)';
                   }}
                 >
-                  {vendor.logoUrl ? (
-                    <img
-                      src={vendor.logoUrl}
-                      alt={vendor.shopName}
-                      style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', marginBottom: 16, boxShadow: '0 4px 12px rgba(21,128,61,0.15)' }}
-                    />
-                  ) : (
+                  {/* Stall Image Banner (Owner with Food / Stall Photo) */}
+                  <div style={{
+                    width: '100%',
+                    height: 125,
+                    position: 'relative',
+                    background: vendor.stallImageUrl
+                      ? `url(${vendor.stallImageUrl}) center/cover no-repeat`
+                      : 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {!vendor.stallImageUrl && (
+                      <IoStorefront size={44} color="#15803D" style={{ opacity: 0.7 }} />
+                    )}
+
+                    {/* Gradient overlay on banner */}
                     <div style={{
-                      width: 64, height: 64, borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      marginBottom: 16,
-                      boxShadow: '0 4px 12px rgba(21, 128, 61, 0.15)',
+                      position: 'absolute', inset: 0,
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 70%)'
+                    }} />
+
+                    {/* Menu Item Count badge */}
+                    <div style={{
+                      position: 'absolute', top: 10, right: 10,
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      color: 'var(--primary-dark)',
+                      padding: '4px 10px',
+                      borderRadius: 12,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.12)'
                     }}>
-                      <IoStorefront color="var(--primary-dark)" size={32} />
+                      {vendor.itemCount} Item{vendor.itemCount !== 1 ? 's' : ''}
                     </div>
-                  )}
-                  <div style={{
-                    fontSize: 16, fontWeight: 800, color: 'var(--text-dark)',
-                    lineHeight: 1.2, marginBottom: 8,
-                  }}>
-                    {vendor.shopName}
                   </div>
-                  <div style={{
-                    background: 'var(--surface-hover)',
-                    color: 'var(--primary-dark)',
-                    padding: '4px 12px',
-                    borderRadius: 12,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    marginBottom: 8
-                  }}>
-                    {vendor.itemCount} Menu Item{vendor.itemCount !== 1 ? 's' : ''}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4, opacity: 0.8 }}>
-                    {vendor.description || "Fresh and delicious school meals."}
+
+                  {/* Stall Details & Owner Avatar */}
+                  <div style={{ padding: '14px 16px 16px', position: 'relative' }}>
+                    {/* Owner Face Profile Picture (overlapping banner) */}
+                    <div style={{
+                      marginTop: -38,
+                      marginBottom: 8,
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      justifyContent: 'space-between',
+                    }}>
+                      {vendor.ownerProfileImageUrl || vendor.logoUrl ? (
+                        <img
+                          src={vendor.ownerProfileImageUrl || vendor.logoUrl}
+                          alt={vendor.ownerName || vendor.shopName}
+                          style={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '3px solid white',
+                            boxShadow: '0 3px 10px rgba(0,0,0,0.15)',
+                            background: 'white'
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 50,
+                          height: 50,
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #15803D 0%, #166534 100%)',
+                          color: 'white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: 18,
+                          border: '3px solid white',
+                          boxShadow: '0 3px 10px rgba(0,0,0,0.15)'
+                        }}>
+                          {(vendor.ownerName || vendor.shopName || 'V').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+
+                      <span style={{ fontSize: 11, color: '#15803D', fontWeight: 700, background: '#F0FDF4', padding: '3px 8px', borderRadius: 8, border: '1px solid #BBF7D0' }}>
+                        Open for Orders
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-dark)', lineHeight: 1.3, marginBottom: 2 }}>
+                      {vendor.shopName}
+                    </div>
+
+                    {vendor.ownerName && (
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                        <IoPerson size={12} color="#15803D" />
+                        <span>Owner: <strong>{vendor.ownerName}</strong></span>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, opacity: 0.9 }}>
+                      {vendor.description || "Fresh and delicious school meals."}
+                    </div>
                   </div>
                 </div>
               ))
             )}
           </div>
-
-
-
         </>
       ) : (
         <>
-          {/* Vendor Specific View */}
-          <button
-            onClick={() => { setSelectedVendor(null); setSearch(''); }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'white', border: '1px solid var(--border)',
-              padding: '8px 16px', borderRadius: '12px',
-              color: 'var(--text-dark)', fontWeight: 700, fontSize: 13,
-              cursor: 'pointer', marginBottom: 16,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-            }}
-          >
-            <IoChevronBack size={16} /> Back to all stalls
-          </button>
+          {/* Selected Vendor Hero Header */}
+          <div style={{ marginBottom: 16 }}>
+            {/* Back Button */}
+            <button
+              onClick={() => { setSelectedVendor(null); setSearch(''); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'white', border: '1px solid var(--border)',
+                padding: '8px 16px', borderRadius: '12px',
+                color: 'var(--text-dark)', fontWeight: 700, fontSize: 13,
+                cursor: 'pointer', marginBottom: 12,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+              }}
+            >
+              <IoChevronBack size={16} /> Back to all stalls
+            </button>
+
+            {/* Stall Hero Banner */}
+            <div style={{
+              width: '100%',
+              borderRadius: 20,
+              overflow: 'hidden',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              border: '1px solid var(--border)',
+              background: 'white',
+              marginBottom: 16
+            }}>
+              {/* Stall Cover (Owner with Food) */}
+              <div style={{
+                height: 150,
+                width: '100%',
+                position: 'relative',
+                background: activeVendor?.stallImageUrl
+                  ? `url(${activeVendor.stallImageUrl}) center/cover no-repeat`
+                  : 'linear-gradient(135deg, #15803D 0%, #166534 100%)',
+              }}>
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%)'
+                }} />
+              </div>
+
+              {/* Stall details */}
+              <div style={{ padding: '16px 20px', position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -42, marginBottom: 10 }}>
+                  {activeVendor?.ownerProfileImageUrl || activeVendor?.logoUrl ? (
+                    <img
+                      src={activeVendor.ownerProfileImageUrl || activeVendor.logoUrl}
+                      alt={activeVendor.ownerName || activeVendor.shopName}
+                      style={{
+                        width: 60, height: 60, borderRadius: '50%',
+                        objectFit: 'cover', border: '3px solid white',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        background: 'white'
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 60, height: 60, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #15803D 0%, #166534 100%)',
+                      color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: 22, border: '3px solid white',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                    }}>
+                      {(activeVendor?.ownerName || activeVendor?.shopName || 'V').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+
+                  <span className="badge badge-ready" style={{ fontSize: 12, padding: '4px 12px' }}>
+                    🏪 Active Stall
+                  </span>
+                </div>
+
+                <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-dark)', margin: 0 }}>
+                  {activeVendor?.shopName || "Canteen Stall"}
+                </h1>
+                
+                {activeVendor?.ownerName && (
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                    Owner: <strong>{activeVendor.ownerName}</strong>
+                  </p>
+                )}
+
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.4 }}>
+                  {activeVendor?.description || "Fresh food prepared daily."}
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Categories for Vendor */}
           <div className="category-scroll">
@@ -248,7 +382,7 @@ export default function HomePage() {
           </div>
 
           <div className="section-header" style={{ marginTop: 16 }}>
-            <span className="section-title">Menu</span>
+            <span className="section-title">Menu Items</span>
           </div>
 
           {loading ? (

@@ -68,12 +68,17 @@ public class MenuItemsController : ControllerBase
     public async Task<IActionResult> GetVendors()
     {
         var vendors = await _context.VendorProfiles
+            .Include(v => v.User)
             .Where(v => v.IsActive)
             .Select(v => new
             {
                 v.Id,
                 v.ShopName,
                 v.Description,
+                v.LogoUrl,
+                v.StallImageUrl,
+                OwnerName = v.User != null ? v.User.FullName : $"{v.FirstName} {v.LastName}".Trim(),
+                OwnerProfileImageUrl = v.User != null ? v.User.ProfileImageUrl : "",
                 ItemCount = _context.MenuItems.Count(mi => mi.VendorProfileId == v.Id && mi.IsAvailable)
             })
             .ToListAsync();
@@ -117,6 +122,7 @@ public class MenuItemsController : ControllerBase
         var item = await _context.MenuItems
             .Include(mi => mi.Category)
             .Include(mi => mi.VendorProfile)
+                .ThenInclude(vp => vp.User)
             .Include(mi => mi.Reviews)
                 .ThenInclude(r => r.User)
             .Where(mi => mi.Id == id)
@@ -131,7 +137,15 @@ public class MenuItemsController : ControllerBase
                 mi.IsSpecial,
                 mi.Stock,
                 Category = mi.Category.Name,
-                Vendor = new { mi.VendorProfile.Id, mi.VendorProfile.ShopName, mi.VendorProfile.LogoUrl },
+                Vendor = new
+                {
+                    mi.VendorProfile.Id,
+                    mi.VendorProfile.ShopName,
+                    mi.VendorProfile.LogoUrl,
+                    mi.VendorProfile.StallImageUrl,
+                    OwnerName = mi.VendorProfile.User != null ? mi.VendorProfile.User.FullName : $"{mi.VendorProfile.FirstName} {mi.VendorProfile.LastName}".Trim(),
+                    OwnerProfileImageUrl = mi.VendorProfile.User != null ? mi.VendorProfile.User.ProfileImageUrl : ""
+                },
                 AverageRating = mi.Reviews.Any() ? Math.Round(mi.Reviews.Average(r => r.Rating), 1) : 0,
                 ReviewCount = mi.Reviews.Count,
                 Reviews = mi.Reviews.OrderByDescending(r => r.CreatedAt).Take(10).Select(r => new

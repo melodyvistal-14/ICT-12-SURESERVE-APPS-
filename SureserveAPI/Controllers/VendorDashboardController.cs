@@ -30,6 +30,7 @@ public class VendorDashboardController : ControllerBase
 
         // Get vendor profile for current user
         var vendor = await _context.VendorProfiles
+            .Include(v => v.User)
             .FirstOrDefaultAsync(v => v.UserId == userId);
 
         if (vendor == null)
@@ -58,6 +59,9 @@ public class VendorDashboardController : ControllerBase
         {
             vendor.ShopName,
             vendor.LogoUrl,
+            vendor.StallImageUrl,
+            OwnerName = vendor.User != null ? vendor.User.FullName : $"{vendor.FirstName} {vendor.LastName}".Trim(),
+            OwnerProfileImageUrl = vendor.User != null ? vendor.User.ProfileImageUrl : "",
             TotalOrders = totalOrders,
             TotalItems = totalItems,
             EstimatedSales = estimatedSales,
@@ -106,6 +110,7 @@ public class VendorDashboardController : ControllerBase
                 Student = new
                 {
                     o.User.FullName,
+                    ProfileImageUrl = o.User.ProfileImageUrl,
                     StudentId = o.User.StudentProfile != null ? o.User.StudentProfile.StudentId : "N/A",
                     GradeSection = o.User.StudentProfile != null ? o.User.StudentProfile.GradeSection : "Student"
                 },
