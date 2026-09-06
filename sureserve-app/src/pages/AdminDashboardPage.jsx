@@ -198,8 +198,8 @@ export default function AdminDashboardPage() {
   const handleViewVendorProducts = async (vendor) => {
     setViewingVendor(vendor);
     try {
-      // The menuitems endpoint expects vendorId query param
-      const res = await api.get(`/menuitems?vendorId=${vendor.id || vendor.vendorProfileId}`);
+      // The menuitems endpoint expects vendorId query param which maps to VendorProfileId
+      const res = await api.get(`/menuitems?vendorId=${vendor.vendorProfileId || vendor.id}`);
       setVendorProducts(res.data);
     } catch (err) {
       console.error(err);
