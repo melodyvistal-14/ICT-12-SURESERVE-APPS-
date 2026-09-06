@@ -113,7 +113,24 @@ public class AdminController : ControllerBase
                 Stalls = u.Orders.SelectMany(o => o.OrderItems)
                                  .Select(oi => oi.MenuItem.VendorProfile.ShopName)
                                  .Distinct()
-                                 .ToList()
+                                 .ToList(),
+                Orders = u.Orders.OrderByDescending(o => o.CreatedAt).Select(o => new
+                {
+                    o.Id,
+                    o.OrderNumber,
+                    o.Status,
+                    o.SubTotal,
+                    o.TotalAmount,
+                    o.CreatedAt,
+                    Items = o.OrderItems.Select(oi => new
+                    {
+                        oi.Id,
+                        ItemName = oi.MenuItem != null ? oi.MenuItem.Name : "Unknown Item",
+                        oi.Quantity,
+                        oi.Price,
+                        StallName = oi.MenuItem != null && oi.MenuItem.VendorProfile != null ? oi.MenuItem.VendorProfile.ShopName : "Unknown Stall"
+                    }).ToList()
+                }).ToList()
             })
             .ToListAsync();
 
