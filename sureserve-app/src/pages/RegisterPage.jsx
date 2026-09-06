@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { IoEye, IoEyeOff, IoArrowBack, IoCloudUpload, IoIdCard, IoCheckmarkCircle, IoWarning, IoPerson, IoStorefront } from 'react-icons/io5';
+import { IoEye, IoEyeOff, IoArrowBack, IoCloudUpload, IoIdCard, IoCheckmarkCircle, IoWarning, IoStorefront } from 'react-icons/io5';
 import api from '../services/api';
 
 // Helper component for Image Uploads
@@ -150,9 +150,6 @@ export default function RegisterPage({ defaultRole }) {
   const [idPhotoUrl, setIdPhotoUrl] = useState('');
   const [idPhotoUploading, setIdPhotoUploading] = useState(false);
 
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
-  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
-
   const [stallPhotoUrl, setStallPhotoUrl] = useState('');
   const [stallPhotoUploading, setStallPhotoUploading] = useState(false);
 
@@ -191,18 +188,18 @@ export default function RegisterPage({ defaultRole }) {
     e.preventDefault();
     setError('');
 
-    if (idPhotoUploading || profilePhotoUploading || stallPhotoUploading) {
-      setError('Please wait — photos are still uploading...');
+    if (idPhotoUploading || stallPhotoUploading) {
+      setError('Please wait — photo is still uploading...');
       return;
     }
 
-    if (!isVendorRoute && (!idPhotoUrl || !profilePhotoUrl)) {
-      setError('Please upload both your Profile Picture and School ID before registering.');
+    if (!isVendorRoute && !idPhotoUrl) {
+      setError('Please upload your School ID photo before registering.');
       return;
     }
 
-    if (isVendorRoute && (!profilePhotoUrl || !stallPhotoUrl)) {
-      setError('Please upload both your Profile Picture and Stall Picture before registering.');
+    if (isVendorRoute && !stallPhotoUrl) {
+      setError('Please upload your Stall Picture before registering.');
       return;
     }
 
@@ -219,7 +216,7 @@ export default function RegisterPage({ defaultRole }) {
       gradeSection: calculatedGradeSection,
       age: form.age ? parseInt(form.age) : 0,
       studentIdPhotoUrl: idPhotoUrl,
-      profileImageUrl: profilePhotoUrl,
+      profileImageUrl: '', // Profile picture can be uploaded/edited later in the user's Profile
       stallImageUrl: stallPhotoUrl,
     };
 
@@ -267,19 +264,10 @@ export default function RegisterPage({ defaultRole }) {
               <input className="input" type="text" placeholder="e.g. Tia Mel's Canteen" value={form.shopName} onChange={(e) => setForm({ ...form, shopName: e.target.value })} required />
             </div>
 
-            {/* Vendor Profile & Stall Photos */}
-            <ImageUploadBox 
-              title="Profile Picture" 
-              subtitle="Required · Used as your avatar" 
-              icon={<IoPerson size={20} />} 
-              fileUrl={profilePhotoUrl} 
-              uploading={profilePhotoUploading} 
-              onFileSelect={(f) => handleFileUpload(f, setProfilePhotoUrl, setProfilePhotoUploading)} 
-            />
-
+            {/* Vendor Stall Photo */}
             <ImageUploadBox 
               title="Stall Picture" 
-              subtitle="Required · A full picture of your canteen stall" 
+              subtitle="Required · A full picture of your canteen stall with food" 
               icon={<IoStorefront size={20} />} 
               fileUrl={stallPhotoUrl} 
               uploading={stallPhotoUploading} 
@@ -313,20 +301,10 @@ export default function RegisterPage({ defaultRole }) {
               <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>⚠️ Each student can only create one account. Duplicate IDs will be rejected.</span>
             </div>
 
-            {/* Student Photos */}
-            <ImageUploadBox 
-              title="Profile Picture" 
-              subtitle="Required · Used as your avatar in the app" 
-              icon={<IoPerson size={20} />} 
-              fileUrl={profilePhotoUrl} 
-              uploading={profilePhotoUploading} 
-              onFileSelect={(f) => handleFileUpload(f, setProfilePhotoUrl, setProfilePhotoUploading)} 
-            />
-
             {/* School ID Upload — Strictly Required */}
             <div style={{ background: '#FFF7ED', border: '2px solid #FB923C', borderRadius: 14, padding: '10px 14px', marginBottom: 8, fontSize: 12, color: '#9A3412', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <IoIdCard size={16} style={{ flexShrink: 0 }} />
-              <span>🚨 School ID Photo is <u>required</u> — registration will be declined without it. This is used for face verification every time you log in.</span>
+              <span>🚨 School ID Photo is <u>required</u> — registration will be declined without it. This is used for ID scanning verification every time you log in.</span>
             </div>
             <ImageUploadBox 
               title="School ID Photo" 
@@ -377,8 +355,8 @@ export default function RegisterPage({ defaultRole }) {
           </div>
         </div>
 
-        <button className="btn btn-primary" disabled={loading || idPhotoUploading || profilePhotoUploading || stallPhotoUploading || (!isVendorRoute && (!idPhotoUrl || !profilePhotoUrl)) || (isVendorRoute && (!profilePhotoUrl || !stallPhotoUrl))} style={{ marginTop: 8 }}>
-          {loading ? 'Creating Account...' : (idPhotoUploading || profilePhotoUploading || stallPhotoUploading) ? 'Uploading Photos...' : (isVendorRoute ? 'Create Canteen Stall Account 🏪' : 'Register Student Account 🎓')}
+        <button className="btn btn-primary" disabled={loading || idPhotoUploading || stallPhotoUploading || (!isVendorRoute && !idPhotoUrl) || (isVendorRoute && !stallPhotoUrl)} style={{ marginTop: 8 }}>
+          {loading ? 'Creating Account...' : (idPhotoUploading || stallPhotoUploading) ? 'Uploading Photo...' : (isVendorRoute ? 'Create Canteen Stall Account 🏪' : 'Register Student Account 🎓')}
         </button>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: 'var(--text-secondary)' }}>
