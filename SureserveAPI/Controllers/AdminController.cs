@@ -211,46 +211,66 @@ public class AdminController : ControllerBase
             .Where(vp => !vendorUserIds.Contains(vp.UserId))
             .ToListAsync();
 
-        var result = vendorUsers.Select(u => new
+        static List<object> MapMenuItems(IEnumerable<MenuItem> items) =>
+            items.OrderBy(m => m.Name).Select(m => (object)new
+            {
+                id = m.Id,
+                name = m.Name,
+                description = m.Description,
+                price = m.Price,
+                imageUrl = m.ImageUrl,
+                isAvailable = m.IsAvailable,
+                isSpecial = m.IsSpecial,
+                stock = m.Stock
+            }).ToList();
+
+        var result = new List<object>();
+
+        foreach (var u in vendorUsers)
         {
-            u.Id,
-            u.Username,
-            u.FullName,
-            u.Email,
-            u.ContactNumber,
-            u.CreatedAt,
-            VendorProfileId = u.VendorProfile != null ? u.VendorProfile.Id : 0,
-            ShopName = u.VendorProfile != null ? u.VendorProfile.ShopName : (string.IsNullOrWhiteSpace(u.FullName) ? "Unassigned Stall" : u.FullName),
-            IsActive = u.VendorProfile != null ? u.VendorProfile.IsActive : false,
-            Status = u.VendorProfile != null 
-                ? (string.IsNullOrEmpty(u.VendorProfile.Status) 
-                    ? (u.VendorProfile.IsActive ? "Active" : "Deactivated") 
-                    : u.VendorProfile.Status) 
-                : "Deactivated",
-            Age = u.VendorProfile != null ? u.VendorProfile.Age : 0,
-            Birthday = u.VendorProfile != null ? u.VendorProfile.Birthday : "",
-            Address = u.VendorProfile != null ? u.VendorProfile.Address : "",
-            ItemCount = u.VendorProfile != null ? u.VendorProfile.MenuItems.Count : 0
-        }).ToList();
+            result.Add(new
+            {
+                id = u.Id,
+                username = u.Username,
+                fullName = u.FullName,
+                email = u.Email,
+                contactNumber = u.ContactNumber,
+                createdAt = u.CreatedAt,
+                vendorProfileId = u.VendorProfile != null ? u.VendorProfile.Id : 0,
+                shopName = u.VendorProfile != null ? u.VendorProfile.ShopName : (string.IsNullOrWhiteSpace(u.FullName) ? "Unassigned Stall" : u.FullName),
+                isActive = u.VendorProfile != null ? u.VendorProfile.IsActive : false,
+                status = u.VendorProfile != null
+                    ? (string.IsNullOrEmpty(u.VendorProfile.Status)
+                        ? (u.VendorProfile.IsActive ? "Active" : "Deactivated")
+                        : u.VendorProfile.Status)
+                    : "Deactivated",
+                age = u.VendorProfile != null ? u.VendorProfile.Age : 0,
+                birthday = u.VendorProfile != null ? u.VendorProfile.Birthday : "",
+                address = u.VendorProfile != null ? u.VendorProfile.Address : "",
+                itemCount = u.VendorProfile != null ? u.VendorProfile.MenuItems.Count : 0,
+                menuItems = u.VendorProfile != null ? MapMenuItems(u.VendorProfile.MenuItems) : new List<object>()
+            });
+        }
 
         foreach (var vp in orphanProfiles)
         {
             result.Add(new
             {
-                Id = vp.UserId > 0 ? vp.UserId : vp.Id,
-                Username = vp.User != null ? vp.User.Username : "vendor",
-                FullName = vp.User != null ? vp.User.FullName : vp.ShopName,
-                Email = vp.User != null ? vp.User.Email : "",
-                ContactNumber = vp.User != null ? vp.User.ContactNumber : "",
-                CreatedAt = vp.User != null ? vp.User.CreatedAt : DateTime.UtcNow,
-                VendorProfileId = vp.Id,
-                ShopName = string.IsNullOrWhiteSpace(vp.ShopName) ? "Unassigned Stall" : vp.ShopName,
-                IsActive = vp.IsActive,
-                Status = string.IsNullOrEmpty(vp.Status) ? (vp.IsActive ? "Active" : "Deactivated") : vp.Status,
-                Age = vp.Age,
-                Birthday = vp.Birthday,
-                Address = vp.Address,
-                ItemCount = vp.MenuItems.Count
+                id = vp.UserId > 0 ? vp.UserId : vp.Id,
+                username = vp.User != null ? vp.User.Username : "vendor",
+                fullName = vp.User != null ? vp.User.FullName : vp.ShopName,
+                email = vp.User != null ? vp.User.Email : "",
+                contactNumber = vp.User != null ? vp.User.ContactNumber : "",
+                createdAt = vp.User != null ? vp.User.CreatedAt : DateTime.UtcNow,
+                vendorProfileId = vp.Id,
+                shopName = string.IsNullOrWhiteSpace(vp.ShopName) ? "Unassigned Stall" : vp.ShopName,
+                isActive = vp.IsActive,
+                status = string.IsNullOrEmpty(vp.Status) ? (vp.IsActive ? "Active" : "Deactivated") : vp.Status,
+                age = vp.Age,
+                birthday = vp.Birthday,
+                address = vp.Address,
+                itemCount = vp.MenuItems.Count,
+                menuItems = MapMenuItems(vp.MenuItems)
             });
         }
 
@@ -483,13 +503,43 @@ public class AdminController : ControllerBase
     [HttpGet("vendors/{id}/products")]
     public async Task<IActionResult> GetVendorProducts(int id)
     {
-        // Look up VendorProfile by UserId first, then by Profile ID as fallback
+        // Try to find VendorProfile by User ID first
         var vendorProfile = await _context.VendorProfiles
             .Include(vp => vp.MenuItems)
-            .FirstOrDefaultAsync(vp => vp.UserId == id || vp.Id == id);
+            .FirstOrDefaultAsync(vp => vp.UserId == id);
+
+        // If not found by User ID, try by VendorProfile ID
+        if (vendorProfile == null)
+        {
+            vendorProfile = await _context.VendorProfiles
+                .Include(vp => vp.MenuItems)
+                .FirstOrDefaultAsync(vp => vp.Id == id);
+        }
+
+        // If still not found, try to find User first and then their VendorProfile
+        if (vendorProfile == null)
+        {
+            var user = await _context.Users
+                .Include(u => u.VendorProfile)
+                    .ThenInclude(vp => vp!.MenuItems)
+                .FirstOrDefaultAsync(u => u.Id == id && u.Role == "Vendor");
+
+            if (user != null && user.VendorProfile != null)
+            {
+                vendorProfile = user.VendorProfile;
+            }
+        }
 
         if (vendorProfile == null)
             return Ok(new List<object>());
+
+        // Ensure MenuItems are loaded if not already
+        if (!vendorProfile.MenuItems.Any())
+        {
+            vendorProfile.MenuItems = await _context.MenuItems
+                .Where(mi => mi.VendorProfileId == vendorProfile.Id)
+                .ToListAsync();
+        }
 
         var items = vendorProfile.MenuItems
             .OrderBy(mi => mi.Name)

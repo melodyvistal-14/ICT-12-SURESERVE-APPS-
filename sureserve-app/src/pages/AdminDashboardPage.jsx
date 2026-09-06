@@ -195,17 +195,10 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleViewVendorProducts = async (vendor) => {
+  const handleViewVendorProducts = (vendor) => {
     setViewingVendor(vendor);
-    setVendorProducts(null);
-    try {
-      // Use dedicated admin endpoint — accepts User ID and resolves VendorProfileId internally
-      const res = await api.get(`/admin/vendors/${vendor.id}/products`);
-      setVendorProducts(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error('Failed to load vendor products:', err);
-      setVendorProducts([]);
-    }
+    // menuItems are already embedded in the vendor data from /admin/vendors — no extra API call needed!
+    setVendorProducts(Array.isArray(vendor.menuItems) ? vendor.menuItems : []);
   };
 
   const [stallToDelete, setStallToDelete] = useState(null);
