@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { IoEye, IoEyeOff, IoArrowBack, IoCloudUpload, IoIdCard, IoCheckmarkCircle, IoWarning, IoStorefront } from 'react-icons/io5';
+import { IoEye, IoEyeOff, IoArrowBack, IoCloudUpload, IoIdCard, IoCheckmarkCircle, IoWarning } from 'react-icons/io5';
 import api from '../services/api';
 
 // Helper component for Image Uploads
@@ -146,12 +146,9 @@ export default function RegisterPage({ defaultRole }) {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Upload States
+  // Upload States (Only School ID is uploaded on registration by students; all profile & stall photos are managed in Profile)
   const [idPhotoUrl, setIdPhotoUrl] = useState('');
   const [idPhotoUploading, setIdPhotoUploading] = useState(false);
-
-  const [stallPhotoUrl, setStallPhotoUrl] = useState('');
-  const [stallPhotoUploading, setStallPhotoUploading] = useState(false);
 
   const isSeniorHigh = form.gradeLevel === 'Grade 11' || form.gradeLevel === 'Grade 12';
 
@@ -188,18 +185,13 @@ export default function RegisterPage({ defaultRole }) {
     e.preventDefault();
     setError('');
 
-    if (idPhotoUploading || stallPhotoUploading) {
-      setError('Please wait — photo is still uploading...');
+    if (!isVendorRoute && idPhotoUploading) {
+      setError('Please wait — School ID photo is still uploading...');
       return;
     }
 
     if (!isVendorRoute && !idPhotoUrl) {
       setError('Please upload your School ID photo before registering.');
-      return;
-    }
-
-    if (isVendorRoute && !stallPhotoUrl) {
-      setError('Please upload your Stall Picture before registering.');
       return;
     }
 
@@ -216,8 +208,8 @@ export default function RegisterPage({ defaultRole }) {
       gradeSection: calculatedGradeSection,
       age: form.age ? parseInt(form.age) : 0,
       studentIdPhotoUrl: idPhotoUrl,
-      profileImageUrl: '', // Profile picture can be uploaded/edited later in the user's Profile
-      stallImageUrl: stallPhotoUrl,
+      profileImageUrl: '', // Profile & stall photos can be uploaded/edited in the Profile page
+      stallImageUrl: '',
     };
 
     try {
@@ -263,16 +255,6 @@ export default function RegisterPage({ defaultRole }) {
               <label>Canteen / Shop Name</label>
               <input className="input" type="text" placeholder="e.g. Tia Mel's Canteen" value={form.shopName} onChange={(e) => setForm({ ...form, shopName: e.target.value })} required />
             </div>
-
-            {/* Vendor Stall Photo */}
-            <ImageUploadBox 
-              title="Stall Picture" 
-              subtitle="Required · A full picture of your canteen stall with food" 
-              icon={<IoStorefront size={20} />} 
-              fileUrl={stallPhotoUrl} 
-              uploading={stallPhotoUploading} 
-              onFileSelect={(f) => handleFileUpload(f, setStallPhotoUrl, setStallPhotoUploading)} 
-            />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="input-group"><label>First Name</label><input className="input" type="text" placeholder="e.g. Maria" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required /></div>
@@ -355,8 +337,12 @@ export default function RegisterPage({ defaultRole }) {
           </div>
         </div>
 
-        <button className="btn btn-primary" disabled={loading || idPhotoUploading || stallPhotoUploading || (!isVendorRoute && !idPhotoUrl) || (isVendorRoute && !stallPhotoUrl)} style={{ marginTop: 8 }}>
-          {loading ? 'Creating Account...' : (idPhotoUploading || stallPhotoUploading) ? 'Uploading Photo...' : (isVendorRoute ? 'Create Canteen Stall Account 🏪' : 'Register Student Account 🎓')}
+        <button
+          className="btn btn-primary"
+          disabled={loading || (!isVendorRoute && (idPhotoUploading || !idPhotoUrl))}
+          style={{ marginTop: 8 }}
+        >
+          {loading ? 'Creating Account...' : (!isVendorRoute && idPhotoUploading) ? 'Uploading School ID...' : (isVendorRoute ? 'Create Canteen Stall Account 🏪' : 'Register Student Account 🎓')}
         </button>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: 'var(--text-secondary)' }}>
