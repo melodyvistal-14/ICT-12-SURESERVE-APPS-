@@ -619,7 +619,7 @@ public class VendorStatusRequest
                     ItemName = oi.MenuItem != null ? oi.MenuItem.Name : "Unknown Item",
                     oi.Quantity,
                     oi.Price,
-                    StallName = oi.MenuItem?.VendorProfile != null ? oi.MenuItem.VendorProfile.ShopName : "Unknown Stall"
+                    StallName = oi.MenuItem != null && oi.MenuItem.VendorProfile != null ? oi.MenuItem.VendorProfile.ShopName : "Unknown Stall"
                 })
             })
             .ToListAsync();
