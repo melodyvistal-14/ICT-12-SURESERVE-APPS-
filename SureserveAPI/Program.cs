@@ -131,6 +131,51 @@ app.UseAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    var dbConn = dbContext.Database.GetDbConnection();
+    if (dbConn.GetType().Name == "NpgsqlConnection")
+    {
+        dbConn.Open();
+        using (var cmd = dbConn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'Users'";
+            var usersExists = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+
+            cmd.CommandText = "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '__EFMigrationsHistory'";
+            var historyExists = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+
+            if (usersExists)
+            {
+                if (!historyExists)
+                {
+                    cmd.CommandText = "CREATE TABLE \"__EFMigrationsHistory\" (\"MigrationId\" character varying(150) NOT NULL, \"ProductVersion\" character varying(32) NOT NULL, CONSTRAINT \"PK___EFMigrationsHistory\" PRIMARY KEY (\"MigrationId\"));";
+                    cmd.ExecuteNonQuery();
+                }
+
+                cmd.CommandText = "SELECT COUNT(*) FROM \"__EFMigrationsHistory\"";
+                var count = Convert.ToInt64(cmd.ExecuteScalar());
+
+                if (count == 0)
+                {
+                    var oldMigrations = new[] {
+                        "20260803103229_InitialCreate",
+                        "20260803110229_AddSureServeModels",
+                        "20260803110747_RemoveDeliveryAddPickup",
+                        "20260826180325_AddPushSubscriptions",
+                        "20260901215345_AddStudentIdPhotoUrl",
+                        "20260901230213_AddStallImageUrl"
+                    };
+                    foreach (var m in oldMigrations)
+                    {
+                        cmd.CommandText = $"INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('{m}', '8.0.0') ON CONFLICT DO NOTHING;";
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+        }
+        dbConn.Close();
+    }
+
     dbContext.Database.Migrate(); // Ensure database schema is up-to-date
     DbSeeder.Seed(dbContext);
 }
