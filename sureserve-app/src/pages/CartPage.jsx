@@ -82,7 +82,7 @@ export default function CartPage() {
   };
 
   const currentDeliveryFee = deliveryType === 'Delivery' ? getDeliveryFee(building) : 0;
-  const grandTotal = (cartData.totalAmount || 0) + currentDeliveryFee;
+  const grandTotal = (cartData?.totalAmount || 0) + currentDeliveryFee;
 
   const handleCheckout = async () => {
     if (deliveryType === 'Delivery' && (!building || !room || !section)) {
