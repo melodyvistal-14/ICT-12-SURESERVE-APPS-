@@ -98,10 +98,10 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
 
       if (text.includes(expectedId)) {
         setStatus('matched');
-        setMessage(`✅ Identity verified! Student ID (${username}) matched.`);
+        setMessage(`✅ Identity verified! ${username.startsWith('T-') ? 'Teacher' : 'Student'} ID (${username}) matched.`);
       } else {
         setStatus('failed');
-        setMessage(`❌ Could not find Student ID (${username}) on the card. Please ensure the text is clear and readable.`);
+        setMessage(`❌ Could not find ${username.startsWith('T-') ? 'Teacher' : 'Student'} ID (${username}) on the card. Please ensure the text is clear and readable.`);
       }
     } catch (err) {
       setStatus('error');
@@ -156,7 +156,7 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
       </div>
 
       <p style={{ fontSize: 13, color: '#475569', textAlign: 'center', marginBottom: 20, lineHeight: 1.5 }}>
-        Scan your <strong>School ID card</strong>. Our system will read the text to verify your Student ID.
+        Scan your <strong>{username.startsWith('T-') ? 'Teacher' : 'School'} ID card</strong>. Our system will read the text to verify your {username.startsWith('T-') ? 'Teacher' : 'Student'} ID.
       </p>
 
       {/* Camera feed or captured photo */}
@@ -258,7 +258,7 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
             color: 'white', boxShadow: '0 4px 14px rgba(21,128,61,0.3)',
           }}
         >
-          ✅ Verified — Enter SureServe 🎓
+          ✅ Verified — Enter SureServe
         </button>
       ) : status === 'failed' || status === 'error' ? (
         <button
@@ -344,8 +344,8 @@ export default function LoginPage() {
         portalRole: loginRole,
       });
 
-      // If student and requires ID verification → go to Step 2
-      if (res.data.requiresIdVerification && loginRole === 'Student') {
+      // If student/teacher and requires ID verification → go to Step 2
+      if (res.data.requiresIdVerification && (loginRole === 'Student' || loginRole === 'Teacher')) {
         setPendingCredentials({ username: userToLogin, password: pwdToLogin });
         setVerificationStep(true);
         setLoading(false);
@@ -362,7 +362,7 @@ export default function LoginPage() {
         navigate('/');
       }
     } catch (err) {
-      setError(err.response?.data?.message || (loginRole === 'Vendor' ? 'Incorrect passkey or password.' : 'Incorrect username or password.'));
+      setError(err.response?.data?.message || (loginRole === 'Vendor' ? 'Incorrect passkey or password.' : (loginRole === 'Teacher' ? 'Incorrect Teacher ID or password.' : 'Incorrect Student ID or password.')));
     } finally {
       setLoading(false);
     }
@@ -441,7 +441,7 @@ export default function LoginPage() {
         </div>
 
         <p style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 2 }}>
-          For Students, By School.
+          For Students & Teachers, By School.
         </p>
         <p style={{ fontSize: 12, fontWeight: 500, color: '#64748B' }}>
           School only access.
@@ -490,17 +490,17 @@ export default function LoginPage() {
                   </button>
                   <div style={{ textAlign: 'center' }}>
                     <h3 style={{ fontSize: 18, fontWeight: 800, color: loginRole === 'Vendor' ? '#166534' : '#15803D', margin: 0 }}>
-                      {loginRole === 'Vendor' ? 'Canteen Vendor Login 🏪' : 'Student Login 🎓'}
+                      {loginRole === 'Vendor' ? 'Canteen Vendor Login 🏪' : (loginRole === 'Teacher' ? 'Teacher Login 👨‍🏫' : 'Student Login 🎓')}
                     </h3>
-                    {loginRole === 'Student' && (
+                    {(loginRole === 'Student' || loginRole === 'Teacher') && (
                       <p style={{ fontSize: 11, color: '#64748B', margin: 0 }}>Step 1 of 2</p>
                     )}
                   </div>
                   <div style={{ width: 34 }} />
                 </div>
 
-                {/* Step indicator for students */}
-                {loginRole === 'Student' && (
+                {/* Step indicator for students and teachers */}
+                {(loginRole === 'Student' || loginRole === 'Teacher') && (
                   <div style={{ height: 4, background: '#E2E8F0', borderRadius: 4, marginBottom: 20, overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: '50%', background: 'linear-gradient(90deg, #15803D, #22C55E)', borderRadius: 4, transition: 'width 0.4s ease' }} />
                   </div>
@@ -518,11 +518,11 @@ export default function LoginPage() {
 
                 <form onSubmit={(e) => handleLoginSubmit(e)}>
                   <div className="input-group">
-                    <label>{loginRole === 'Vendor' ? 'Vendor Passkey' : 'Student ID Number'}</label>
+                    <label>{loginRole === 'Vendor' ? 'Vendor Passkey' : (loginRole === 'Teacher' ? 'Teacher ID Number' : 'Student ID Number')}</label>
                     <input
                       className="input"
                       type="text"
-                      placeholder={loginRole === 'Vendor' ? 'Enter your vendor passkey' : 'e.g. 2026-00125'}
+                      placeholder={loginRole === 'Vendor' ? 'Enter your vendor passkey' : (loginRole === 'Teacher' ? 'e.g. T-2026-00125' : 'e.g. 2026-00125')}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
@@ -555,7 +555,7 @@ export default function LoginPage() {
                     </div>
                   </div>
 
-                  {loginRole === 'Student' && (
+                  {(loginRole === 'Student' || loginRole === 'Teacher') && (
                     <div style={{
                       background: '#F0FDF4', border: '1px solid #BBF7D0',
                       borderRadius: 10, padding: '10px 12px', marginBottom: 14,
@@ -563,7 +563,7 @@ export default function LoginPage() {
                       display: 'flex', alignItems: 'center', gap: 8,
                     }}>
                       <IoIdCard size={16} style={{ flexShrink: 0 }} />
-                      <span>After credentials are verified, you'll be asked to scan your <strong>School ID card</strong> for identity confirmation.</span>
+                      <span>After credentials are verified, you'll be asked to scan your <strong>{loginRole === 'Teacher' ? 'Teacher' : 'School'} ID card</strong> for identity confirmation.</span>
                     </div>
                   )}
                   {loginRole === 'Vendor' && (
@@ -597,6 +597,8 @@ export default function LoginPage() {
                   <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: '#64748B' }}>
                     {loginRole === 'Student' ? (
                       <p>Don't have a student account? <Link to="/register" style={{ color: '#15803D', fontWeight: 700, textDecoration: 'none' }}>Register Student Account</Link></p>
+                    ) : loginRole === 'Teacher' ? (
+                      <p>Don't have a teacher account? <Link to="/register" style={{ color: '#15803D', fontWeight: 700, textDecoration: 'none' }}>Register Teacher Account</Link></p>
                     ) : (
                       <p>New Canteen Stall Staff? <Link to="/vendor/register" style={{ color: '#166534', fontWeight: 700, textDecoration: 'underline' }}>Register Canteen Stall</Link></p>
                     )}
@@ -622,6 +624,21 @@ export default function LoginPage() {
             >
               <IoSchool size={20} />
               <span>Student Login</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn"
+              onClick={() => handleOpenPortal('Teacher')}
+              style={{
+                background: '#FFFFFF', color: '#15803D', padding: '14px', borderRadius: '16px',
+                fontSize: 15, fontWeight: 700, border: '2px solid #BBF7D0',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              <IoSchool size={20} />
+              <span>Teacher Login</span>
             </button>
 
             <button

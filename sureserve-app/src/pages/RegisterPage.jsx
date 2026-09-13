@@ -135,9 +135,9 @@ export default function RegisterPage({ defaultRole }) {
 
   const [form, setForm] = useState({
     username: '', password: '', fullName: '', firstName: '', lastName: '',
-    role: initialRole, shopName: '', vendorCode: '', studentId: '',
-    gradeLevel: 'Grade 10', sectionName: 'Section A', strand: 'STEM',
-    age: '', birthday: '', address: '',
+    role: initialRole, shopName: '', vendorCode: '', studentId: '', teacherId: '',
+    gradeLevel: 'Grade 10', sectionName: 'Section A', strand: 'STEM', department: '',
+    age: '', birthday: '', address: '', building: '', floor: '', room: '', section: '',
   });
 
   const [showPwd, setShowPwd] = useState(false);
@@ -146,11 +146,12 @@ export default function RegisterPage({ defaultRole }) {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Upload States (Only School ID is uploaded on registration by students; all profile & stall photos are managed in Profile)
+  // Upload States (School ID for students, Teacher ID for teachers; all profile & stall photos are managed in Profile)
   const [idPhotoUrl, setIdPhotoUrl] = useState('');
   const [idPhotoUploading, setIdPhotoUploading] = useState(false);
 
   const isSeniorHigh = form.gradeLevel === 'Grade 11' || form.gradeLevel === 'Grade 12';
+  const isTeacher = form.role === 'Teacher';
 
   const calculateAge = (birthdayStr) => {
     if (!birthdayStr) return '';
@@ -186,12 +187,18 @@ export default function RegisterPage({ defaultRole }) {
     setError('');
 
     if (!isVendorRoute && idPhotoUploading) {
-      setError('Please wait — School ID photo is still uploading...');
+      setError('Please wait — ID photo is still uploading...');
       return;
     }
 
     if (!isVendorRoute && !idPhotoUrl) {
-      setError('Please upload your School ID photo before registering.');
+      setError('Please upload your ID photo before registering.');
+      return;
+    }
+
+    // Validate Teacher ID format
+    if (isTeacher && form.teacherId && !form.teacherId.startsWith('T-')) {
+      setError('Teacher ID must start with "T-" (e.g., T-2026-00125)');
       return;
     }
 
@@ -201,13 +208,14 @@ export default function RegisterPage({ defaultRole }) {
 
     const payload = {
       ...form,
-      // Students use Student ID as username; Vendors use their Passkey as username
-      username: !isVendorRoute ? form.studentId.trim() : form.vendorCode.trim(),
-      role: initialRole,
+      // Students use Student ID as username; Teachers use Teacher ID as username; Vendors use their Passkey as username
+      username: !isVendorRoute ? (isTeacher ? form.teacherId.trim() : form.studentId.trim()) : form.vendorCode.trim(),
+      role: isTeacher ? 'Teacher' : initialRole,
       fullName: isVendorRoute ? form.fullName : `${form.firstName} ${form.lastName}`.trim(),
-      gradeSection: calculatedGradeSection,
+      gradeSection: isTeacher ? '' : calculatedGradeSection,
       age: form.age ? parseInt(form.age) : 0,
-      studentIdPhotoUrl: idPhotoUrl,
+      studentIdPhotoUrl: isTeacher ? '' : idPhotoUrl,
+      teacherIdPhotoUrl: isTeacher ? idPhotoUrl : '',
       profileImageUrl: '', // Profile & stall photos can be uploaded/edited in the Profile page
       stallImageUrl: '',
     };
@@ -231,7 +239,7 @@ export default function RegisterPage({ defaultRole }) {
         <button onClick={() => navigate('/login')} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', marginBottom: 12 }}>
           <IoArrowBack size={20} />
         </button>
-        <h1 style={{ fontSize: 24, fontWeight: 800 }}>{isVendorRoute ? 'Register Canteen Stall 🏪' : 'Create Student Account 🎓'}</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 800 }}>{isVendorRoute ? 'Register Canteen Stall 🏪' : 'Create Account 🎓'}</h1>
         <p style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>{isVendorRoute ? 'Canteen Stall Manager Registration' : 'Join SureServe School Canteen'}</p>
       </div>
 
@@ -240,6 +248,51 @@ export default function RegisterPage({ defaultRole }) {
           <div style={{ background: 'var(--cancelled-bg)', color: 'var(--cancelled)', padding: '10px 16px', borderRadius: 'var(--radius-md)', fontSize: 13, fontWeight: 500, marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
             <IoWarning size={16} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>{error}</span>
+          </div>
+        )}
+
+        {/* Role Selection for Students/Teachers */}
+        {!isVendorRoute && (
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontWeight: 700, fontSize: 14, color: '#1E293B', marginBottom: 8 }}>I am a:</label>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, role: 'Student' })}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  borderRadius: 12,
+                  border: form.role === 'Student' ? '2px solid var(--primary)' : '2px solid #E2E8F0',
+                  background: form.role === 'Student' ? 'var(--primary-bg)' : 'white',
+                  color: form.role === 'Student' ? 'var(--primary-dark)' : '#64748B',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                🎓 Student
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, role: 'Teacher' })}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  borderRadius: 12,
+                  border: form.role === 'Teacher' ? '2px solid var(--primary)' : '2px solid #E2E8F0',
+                  background: form.role === 'Teacher' ? 'var(--primary-bg)' : 'white',
+                  color: form.role === 'Teacher' ? 'var(--primary-dark)' : '#64748B',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                👨‍🏫 Teacher
+              </button>
+            </div>
           </div>
         )}
 
@@ -270,53 +323,106 @@ export default function RegisterPage({ defaultRole }) {
           </>
         ) : (
           <>
-            {/* Student First & Last Name */}
+            {/* First & Last Name */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="input-group"><label>First Name</label><input className="input" type="text" placeholder="e.g. Juan" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required /></div>
               <div className="input-group"><label>Last Name</label><input className="input" type="text" placeholder="e.g. Dela Cruz" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required /></div>
             </div>
 
-            {/* Student ID Number */}
+            {/* ID Number - Student or Teacher */}
             <div className="input-group">
-              <label>Student ID Number</label>
-              <input className="input" type="text" placeholder="e.g. 2026-00125" value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} required />
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>⚠️ Each student can only create one account. Duplicate IDs will be rejected.</span>
+              <label>{isTeacher ? 'Teacher ID Number' : 'Student ID Number'}</label>
+              <input 
+                className="input" 
+                type="text" 
+                placeholder={isTeacher ? 'e.g. T-2026-00125' : 'e.g. 2026-00125'} 
+                value={isTeacher ? form.teacherId : form.studentId} 
+                onChange={(e) => isTeacher ? setForm({ ...form, teacherId: e.target.value }) : setForm({ ...form, studentId: e.target.value })} 
+                required 
+              />
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                {isTeacher ? '⚠️ Teacher IDs must start with "T-" (e.g., T-2026-00125). Each teacher can only create one account.' : '⚠️ Each student can only create one account. Duplicate IDs will be rejected.'}
+              </span>
             </div>
 
             {/* School ID Upload — Strictly Required */}
             <div style={{ background: '#FFF7ED', border: '2px solid #FB923C', borderRadius: 14, padding: '10px 14px', marginBottom: 8, fontSize: 12, color: '#9A3412', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <IoIdCard size={16} style={{ flexShrink: 0 }} />
-              <span>🚨 School ID Photo is <u>required</u> — registration will be declined without it. This is used for ID scanning verification every time you log in.</span>
+              <span>🚨 {isTeacher ? 'Teacher' : 'School'} ID Photo is <u>required</u> — registration will be declined without it. This is used for ID scanning verification every time you log in.</span>
             </div>
             <ImageUploadBox 
-              title="School ID Photo" 
-              subtitle="REQUIRED — No School ID = No Account" 
+              title={`${isTeacher ? 'Teacher' : 'School'} ID Photo`} 
+              subtitle="REQUIRED — No ID = No Account" 
               icon={<IoIdCard size={20} />} 
               fileUrl={idPhotoUrl} 
               uploading={idPhotoUploading} 
               onFileSelect={(f) => handleFileUpload(f, setIdPhotoUrl, setIdPhotoUploading)} 
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div className="input-group">
-                <label>Grade Level</label>
-                <select className="input" value={form.gradeLevel} onChange={(e) => setForm({ ...form, gradeLevel: e.target.value })}>
-                  <option value="Grade 7">Grade 7</option><option value="Grade 8">Grade 8</option><option value="Grade 9">Grade 9</option>
-                  <option value="Grade 10">Grade 10</option><option value="Grade 11">Grade 11 (Senior High)</option><option value="Grade 12">Grade 12 (Senior High)</option>
-                </select>
-              </div>
-              <div className="input-group"><label>Section Name</label><input className="input" type="text" placeholder="e.g. Section A" value={form.sectionName} onChange={(e) => setForm({ ...form, sectionName: e.target.value })} required /></div>
-            </div>
+            {/* Student-specific fields */}
+            {!isTeacher && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="input-group">
+                    <label>Grade Level</label>
+                    <select className="input" value={form.gradeLevel} onChange={(e) => setForm({ ...form, gradeLevel: e.target.value })}>
+                      <option value="Grade 7">Grade 7</option><option value="Grade 8">Grade 8</option><option value="Grade 9">Grade 9</option>
+                      <option value="Grade 10">Grade 10</option><option value="Grade 11">Grade 11 (Senior High)</option><option value="Grade 12">Grade 12 (Senior High)</option>
+                    </select>
+                  </div>
+                  <div className="input-group"><label>Section Name</label><input className="input" type="text" placeholder="e.g. Section A" value={form.sectionName} onChange={(e) => setForm({ ...form, sectionName: e.target.value })} required /></div>
+                </div>
 
-            {isSeniorHigh && (
-              <div className="input-group" style={{ background: 'var(--primary-bg)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-light)' }}>
-                <label style={{ color: 'var(--primary-dark)', fontWeight: 700 }}>Senior High Strand Name 🎓</label>
-                <select className="input" value={form.strand} onChange={(e) => setForm({ ...form, strand: e.target.value })} style={{ background: 'white' }}>
-                  <option value="STEM">STEM (Science, Tech, Engineering & Math)</option><option value="ABM">ABM (Accountancy, Business & Management)</option>
-                  <option value="HUMSS">HUMSS (Humanities & Social Sciences)</option><option value="TVL">TVL (Technical-Vocational-Livelihood)</option><option value="GAS">GAS (General Academic Strand)</option>
+                {isSeniorHigh && (
+                  <div className="input-group" style={{ background: 'var(--primary-bg)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-light)' }}>
+                    <label style={{ color: 'var(--primary-dark)', fontWeight: 700 }}>Senior High Strand Name 🎓</label>
+                    <select className="input" value={form.strand} onChange={(e) => setForm({ ...form, strand: e.target.value })} style={{ background: 'white' }}>
+                      <option value="STEM">STEM (Science, Tech, Engineering & Math)</option><option value="ABM">ABM (Accountancy, Business & Management)</option><option value="HUMSS">HUMSS (Humanities & Social Sciences)</option><option value="TVL">TVL (Technical-Vocational-Livelihood)</option><option value="GAS">GAS (General Academic Strand)</option>
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Teacher-specific fields */}
+            {isTeacher && (
+              <div className="input-group">
+                <label>Department</label>
+                <select className="input" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}>
+                  <option value="">Select Department</option>
+                  <option value="Science">Science</option>
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="English">English</option>
+                  <option value="Filipino">Filipino</option>
+                  <option value="Social Studies">Social Studies</option>
+                  <option value="Physical Education">Physical Education</option>
+                  <option value="Arts">Arts</option>
+                  <option value="Technology">Technology</option>
+                  <option value="General">General</option>
                 </select>
               </div>
             )}
+
+            {/* Common fields for both students and teachers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div className="input-group">
+                <label>Building</label>
+                <input className="input" type="text" placeholder="e.g. Main Building" value={form.building} onChange={(e) => setForm({ ...form, building: e.target.value })} />
+              </div>
+              <div className="input-group">
+                <label>Floor</label>
+                <input className="input" type="text" placeholder="e.g. 2nd Floor" value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} />
+              </div>
+              <div className="input-group">
+                <label>Room</label>
+                <input className="input" type="text" placeholder="e.g. Room 201" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label>Section</label>
+              <input className="input" type="text" placeholder="e.g. Section A" value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} />
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12 }}>
               <div className="input-group"><label>Age</label><input className="input" type="text" placeholder="Auto-calculated" value={form.age} readOnly style={{ background: 'var(--surface-hover)', cursor: 'not-allowed', color: 'var(--text-muted)', fontWeight: 600 }} /></div>
@@ -342,11 +448,11 @@ export default function RegisterPage({ defaultRole }) {
           disabled={loading || (!isVendorRoute && (idPhotoUploading || !idPhotoUrl))}
           style={{ marginTop: 8 }}
         >
-          {loading ? 'Creating Account...' : (!isVendorRoute && idPhotoUploading) ? 'Uploading School ID...' : (isVendorRoute ? 'Create Canteen Stall Account 🏪' : 'Register Student Account 🎓')}
+          {loading ? 'Creating Account...' : (!isVendorRoute && idPhotoUploading) ? 'Uploading ID...' : (isVendorRoute ? 'Create Canteen Stall Account 🏪' : (isTeacher ? 'Register Teacher Account 👨‍🏫' : 'Register Student Account 🎓'))}
         </button>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: 'var(--text-secondary)' }}>
-          {isVendorRoute ? 'Already registered your canteen stall?' : 'Already have a student account?'} <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>{isVendorRoute ? 'Sign In as Vendor' : 'Sign In as Student'}</Link>
+          {isVendorRoute ? 'Already registered your canteen stall?' : (isTeacher ? 'Already have a teacher account?' : 'Already have a student account?')} <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>{isVendorRoute ? 'Sign In as Vendor' : (isTeacher ? 'Sign In as Teacher' : 'Sign In as Student')}</Link>
         </p>
       </form>
     </div>
