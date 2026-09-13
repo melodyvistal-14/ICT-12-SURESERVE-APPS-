@@ -143,7 +143,8 @@ public class OrdersController : ControllerBase
 
         // Calculate delivery fee based on building
         decimal deliveryFee = 0m;
-        if (string.Equals(request.DeliveryType, "Delivery", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(request.DeliveryType, "Delivery", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(request.Building))
         {
             deliveryFee = CalculateDeliveryFee(request.Building);
         }

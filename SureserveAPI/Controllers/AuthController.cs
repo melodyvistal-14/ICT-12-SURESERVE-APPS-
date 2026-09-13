@@ -56,6 +56,7 @@ public class AuthController : ControllerBase
         var user = _context.Users
             .Include(u => u.VendorProfile)
             .Include(u => u.StudentProfile)
+            .Include(u => u.TeacherProfile)
             .FirstOrDefault(u => u.Username == targetUsername && u.Password == request.Password);
 
         if (user == null)
@@ -77,7 +78,7 @@ public class AuthController : ControllerBase
             }
         }
 
-        // 3. For students: enforce School ID verification
+        // 3. For students and teachers: enforce ID verification
         if (user.Role == "Student")
         {
             var hasIdPhoto = !string.IsNullOrWhiteSpace(user.StudentProfile?.StudentIdPhotoUrl);
@@ -86,6 +87,24 @@ public class AuthController : ControllerBase
             if (!hasIdPhoto)
             {
                 return Unauthorized(new { message = "Login declined: No School ID photo found for your account. Please contact the School Admin to update your account." });
+            }
+
+            return Ok(new
+            {
+                requiresIdVerification = true,
+                preAuthToken = GenerateJwtToken(user),
+                user = new { user.Id, user.Username, user.FullName, user.Role }
+            });
+        }
+
+        if (user.Role == "Teacher")
+        {
+            var teacherProfile = _context.TeacherProfiles.FirstOrDefault(tp => tp.UserId == user.Id);
+            var hasIdPhoto = !string.IsNullOrWhiteSpace(teacherProfile?.TeacherIdPhotoUrl);
+
+            if (!hasIdPhoto)
+            {
+                return Unauthorized(new { message = "Login declined: No Teacher ID photo found for your account. Please contact the School Admin to update your account." });
             }
 
             return Ok(new
@@ -206,7 +225,9 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Registration declined: The name provided contains inappropriate language or restricted terms." });
         }
 
-        var role = string.Equals(request.Role, "Vendor", StringComparison.OrdinalIgnoreCase) ? "Vendor" : "Student";
+        var role = string.Equals(request.Role, "Vendor", StringComparison.OrdinalIgnoreCase) ? "Vendor"
+            : string.Equals(request.Role, "Teacher", StringComparison.OrdinalIgnoreCase) ? "Teacher"
+            : "Student";
 
         // For students: use Student ID as their username (no separate username needed)
         if (role == "Student")
@@ -220,6 +241,29 @@ public class AuthController : ControllerBase
 
             // Use Student ID as the username
             request.Username = request.StudentId.Trim();
+        }
+
+        // For teachers: use Teacher ID as their username
+        if (role == "Teacher")
+        {
+            if (string.IsNullOrWhiteSpace(request.TeacherId))
+                return BadRequest(new { message = "Teacher ID Number is required." });
+
+            if (!request.TeacherId.Trim().StartsWith("T-", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Teacher ID must start with \"T-\" (e.g., T-2026-00125)." });
+
+            // STRICT: Teacher ID photo is mandatory
+            if (string.IsNullOrWhiteSpace(request.TeacherIdPhotoUrl))
+                return BadRequest(new { message = "Registration declined: You must upload your Teacher ID photo to register. This is required for identity verification." });
+
+            // Use Teacher ID as the username
+            request.Username = request.TeacherId.Trim();
+
+            // Check duplicate Teacher ID
+            var teacherIdAlreadyUsed = _context.TeacherProfiles
+                .Any(tp => tp.TeacherId == request.TeacherId.Trim());
+            if (teacherIdAlreadyUsed)
+                return BadRequest(new { message = "A teacher account with this Teacher ID already exists. Each teacher can only have one account." });
         }
 
         // For vendors: use the Passkey code as their username (no separate username needed)
@@ -252,6 +296,8 @@ public class AuthController : ControllerBase
         {
             return role == "Student"
                 ? BadRequest(new { message = "A student account with this Student ID already exists. Each student can only have one account." })
+                : role == "Teacher"
+                ? BadRequest(new { message = "A teacher account with this Teacher ID already exists. Each teacher can only have one account." })
                 : BadRequest(new { message = "This Vendor Passkey has already been registered." });
         }
 
@@ -290,20 +336,14 @@ public class AuthController : ControllerBase
 
             // Check individual passkeys table
             var passkeyRecord = _context.VendorPasskeys.FirstOrDefault(p => p.Code == vendorCode);
-            var isPasskeyValid = false;
 
             if (passkeyRecord != null)
             {
                 // Already validated above (not used), just mark it
-                isPasskeyValid = true;
                 passkeyRecord.IsUsed = true;
                 passkeyRecord.UsedByUsername = vendorCode; // passkey IS the username
             }
-            else
-            {
-                // Fallback: system-wide passkey (already validated above)
-                isPasskeyValid = true;
-            }
+            // else: system-wide passkey (already validated above, no action needed)
 
             var vendorProfile = new VendorProfile
             {
@@ -319,6 +359,26 @@ public class AuthController : ControllerBase
                 StallImageUrl = request.StallImageUrl ?? string.Empty
             };
             _context.VendorProfiles.Add(vendorProfile);
+        }
+        else if (role == "Teacher")
+        {
+            var teacherProfile = new TeacherProfile
+            {
+                UserId = user.Id,
+                FirstName = request.FirstName ?? string.Empty,
+                LastName = request.LastName ?? string.Empty,
+                TeacherId = request.TeacherId!.Trim(),
+                Department = request.Department ?? string.Empty,
+                Building = request.Building ?? string.Empty,
+                Floor = request.Floor ?? string.Empty,
+                Room = request.Room ?? string.Empty,
+                Section = request.Section ?? string.Empty,
+                Age = request.Age ?? 0,
+                Birthday = request.Birthday ?? string.Empty,
+                Address = request.Address ?? string.Empty,
+                TeacherIdPhotoUrl = request.TeacherIdPhotoUrl ?? string.Empty
+            };
+            _context.TeacherProfiles.Add(teacherProfile);
         }
         else
         {
@@ -411,11 +471,22 @@ public class RegisterRequest
     public string? Birthday { get; set; }
     public string? Address { get; set; }
 
+    // Teacher Registration Fields
+    public string? TeacherId { get; set; }
+    public string? Department { get; set; }
+    public string? Building { get; set; }
+    public string? Floor { get; set; }
+    public string? Room { get; set; }
+    public string? Section { get; set; }
+
     /// <summary>URL of the uploaded Profile Picture (for both students and vendors).</summary>
     public string? ProfileImageUrl { get; set; }
 
     /// <summary>URL of the uploaded School ID photo (from /auth/upload-image).</summary>
     public string? StudentIdPhotoUrl { get; set; }
+
+    /// <summary>URL of the uploaded Teacher ID photo (from /auth/upload-image).</summary>
+    public string? TeacherIdPhotoUrl { get; set; }
 
     /// <summary>URL of the uploaded Full Picture of the canteen stall (vendors only).</summary>
     public string? StallImageUrl { get; set; }
