@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<StudentProfile> StudentProfiles => Set<StudentProfile>();
+    public DbSet<TeacherProfile> TeacherProfiles => Set<TeacherProfile>();
     public DbSet<VendorProfile> VendorProfiles => Set<VendorProfile>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
@@ -22,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<VendorPasskey> VendorPasskeys => Set<VendorPasskey>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<UserCancellationTracking> UserCancellationTrackings => Set<UserCancellationTracking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,11 +36,25 @@ public class AppDbContext : DbContext
             .HasForeignKey<StudentProfile>(sp => sp.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // User - TeacherProfile (1:1)
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.TeacherProfile)
+            .WithOne(tp => tp.User)
+            .HasForeignKey<TeacherProfile>(tp => tp.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // User - VendorProfile (1:1)
         modelBuilder.Entity<User>()
             .HasOne(u => u.VendorProfile)
             .WithOne(vp => vp.User)
             .HasForeignKey<VendorProfile>(vp => vp.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // User - UserCancellationTracking (1:1)
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.CancellationTracking)
+            .WithOne(uct => uct.User)
+            .HasForeignKey<UserCancellationTracking>(uct => uct.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // VendorProfile - MenuItems (1:N)
@@ -111,6 +127,10 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<StudentProfile>()
             .HasIndex(sp => sp.StudentId)
+            .IsUnique();
+
+        modelBuilder.Entity<TeacherProfile>()
+            .HasIndex(tp => tp.TeacherId)
             .IsUnique();
 
         modelBuilder.Entity<Order>()

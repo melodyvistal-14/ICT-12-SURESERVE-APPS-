@@ -107,10 +107,10 @@ public class OrdersController : ControllerBase
 
     /// <summary>
     /// Place an order from the cart. Notifies the vendor.
-    /// Student will pick up and pay at the canteen.
+    /// Supports both pickup and delivery options.
     /// </summary>
     [HttpPost("checkout")]
-    public async Task<IActionResult> Checkout()
+    public async Task<IActionResult> Checkout([FromBody] CheckoutRequest request)
     {
         var userId = GetUserId();
 
@@ -127,10 +127,28 @@ public class OrdersController : ControllerBase
         if (unavailable.Any())
             return BadRequest(new { message = $"Some items are no longer available: {string.Join(", ", unavailable.Select(ci => ci.MenuItem.Name))}" });
 
+        // Validate delivery requirements
+        if (string.Equals(request.DeliveryType, "Delivery", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(request.Building) || string.IsNullOrWhiteSpace(request.Room) || string.IsNullOrWhiteSpace(request.Section))
+            {
+                return BadRequest(new { message = "Building, Room, and Section are required for delivery orders." });
+            }
+        }
+
         // Generate order number
         var orderNumber = $"#ORD{DateTime.UtcNow:yyMMdd}{new Random().Next(10, 99)}";
 
         var subtotal = cartItems.Sum(ci => ci.MenuItem.Price * ci.Quantity);
+
+        // Calculate delivery fee based on building
+        decimal deliveryFee = 0m;
+        if (string.Equals(request.DeliveryType, "Delivery", StringComparison.OrdinalIgnoreCase))
+        {
+            deliveryFee = CalculateDeliveryFee(request.Building);
+        }
+
+        var totalAmount = subtotal + deliveryFee;
 
         var order = new Order
         {
@@ -138,7 +156,12 @@ public class OrdersController : ControllerBase
             OrderNumber = orderNumber,
             Status = "Pending",
             SubTotal = subtotal,
-            TotalAmount = subtotal,
+            TotalAmount = totalAmount,
+            DeliveryType = request.DeliveryType ?? "Pickup",
+            DeliveryFee = deliveryFee,
+            Building = request.Building ?? string.Empty,
+            Room = request.Room ?? string.Empty,
+            Section = request.Section ?? string.Empty,
             OrderItems = cartItems.Select(ci => new OrderItem
             {
                 MenuItemId = ci.MenuItemId,
@@ -183,10 +206,14 @@ public class OrdersController : ControllerBase
                 {
                     try
                     {
+                        var deliveryInfo = string.Equals(request.DeliveryType, "Delivery", StringComparison.OrdinalIgnoreCase)
+                            ? $" (Delivery to {request.Building}, Room {request.Room})"
+                            : " (Pickup)";
+
                         await _pushNotificationService.SendNotificationAsync(
                             vendorUserId,
                             "🛎️ New Order Received!",
-                            $"Order {orderNumber} is waiting for your confirmation. ({timeString})",
+                            $"Order {orderNumber} is waiting for your confirmation. ({timeString}){deliveryInfo}",
                             "/vendor/orders"
                         );
                     }
@@ -198,14 +225,35 @@ public class OrdersController : ControllerBase
             }
         });
 
+        var message = string.Equals(request.DeliveryType, "Delivery", StringComparison.OrdinalIgnoreCase)
+            ? $"Order placed! The vendor has been notified. Your order will be delivered to {request.Building}, Room {request.Room}. Delivery fee: ₱{deliveryFee:F2}"
+            : "Order placed! The vendor has been notified. Please proceed to the canteen to pick up and pay.";
+
         return Ok(new
         {
-            message = "Order placed! The vendor has been notified. Please proceed to the canteen to pick up and pay.",
+            message,
             order.Id,
             order.OrderNumber,
             order.TotalAmount,
+            order.DeliveryFee,
+            order.DeliveryType,
             order.Status
         });
+    }
+
+    private decimal CalculateDeliveryFee(string building)
+    {
+        // Simple delivery fee calculation based on building
+        // You can customize this based on your school's building layout
+        return building.ToLower() switch
+        {
+            "main building" or "building a" => 10m,
+            "science building" or "building b" => 15m,
+            "arts building" or "building c" => 12m,
+            "sports complex" or "gym" => 20m,
+            "annex" or "building d" => 18m,
+            _ => 15m // Default fee
+        };
     }
 
     /// <summary>
@@ -271,8 +319,49 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
-    /// Cancel an order (student can only cancel Pending orders, max 2 cancellations total).
+    /// Get current user's cancellation status and remaining cancellations.
     /// </summary>
+    [HttpGet("cancellation-status")]
+    public async Task<IActionResult> GetCancellationStatus()
+    {
+        var userId = GetUserId();
+
+        var cancellationTracking = await _context.UserCancellationTrackings
+            .FirstOrDefaultAsync(uct => uct.UserId == userId);
+
+        if (cancellationTracking == null)
+        {
+            return Ok(new
+            {
+                cancellationCount = 0,
+                cancellationsRemaining = 3,
+                isBlocked = false,
+                blockExpiryDate = (DateTime?)null
+            });
+        }
+
+        // Check if user is currently blocked
+        var isBlocked = cancellationTracking.BlockExpiryDate.HasValue && cancellationTracking.BlockExpiryDate.Value > DateTime.UtcNow;
+
+        // Reset count if it's a new day and not blocked
+        if (!isBlocked && cancellationTracking.LastResetDate.Date != DateTime.UtcNow.Date)
+        {
+            cancellationTracking.CancellationCount = 0;
+            cancellationTracking.LastResetDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        var cancellationsRemaining = isBlocked ? 0 : 3 - cancellationTracking.CancellationCount;
+
+        return Ok(new
+        {
+            cancellationCount = cancellationTracking.CancellationCount,
+            cancellationsRemaining = cancellationsRemaining,
+            isBlocked = isBlocked,
+            blockExpiryDate = cancellationTracking.BlockExpiryDate
+        });
+    }
+
     [HttpPut("{id}/cancel")]
     public async Task<IActionResult> CancelOrder(int id)
     {
@@ -288,16 +377,53 @@ public class OrdersController : ControllerBase
         if (order.Status != "Pending")
             return BadRequest(new { message = "Only pending orders can be cancelled." });
 
-        // Count how many orders this user has already cancelled
-        var cancelledCount = await _context.Orders
-            .CountAsync(o => o.UserId == userId && o.Status == "Cancelled");
+        // Get or create cancellation tracking for this user
+        var cancellationTracking = await _context.UserCancellationTrackings
+            .FirstOrDefaultAsync(uct => uct.UserId == userId);
 
-        if (cancelledCount >= 2)
+        if (cancellationTracking == null)
         {
-            return BadRequest(new { 
-                message = "You have reached the maximum number of allowed cancellations (2). You can no longer cancel orders.",
-                cancelLimitReached = true,
-                cancelledCount = cancelledCount
+            cancellationTracking = new UserCancellationTracking
+            {
+                UserId = userId,
+                CancellationCount = 0,
+                LastResetDate = DateTime.UtcNow
+            };
+            _context.UserCancellationTrackings.Add(cancellationTracking);
+        }
+
+        // Check if user is currently blocked
+        if (cancellationTracking.BlockExpiryDate.HasValue && cancellationTracking.BlockExpiryDate.Value > DateTime.UtcNow)
+        {
+            var remainingTime = cancellationTracking.BlockExpiryDate.Value - DateTime.UtcNow;
+            return BadRequest(new
+            {
+                message = $"You have exceeded your cancellation limit. You are blocked from cancelling orders for {remainingTime.Hours} hours and {remainingTime.Minutes} minutes.",
+                isBlocked = true,
+                blockExpiryDate = cancellationTracking.BlockExpiryDate
+            });
+        }
+
+        // Reset count if it's a new day
+        if (cancellationTracking.LastResetDate.Date != DateTime.UtcNow.Date)
+        {
+            cancellationTracking.CancellationCount = 0;
+            cancellationTracking.LastResetDate = DateTime.UtcNow;
+        }
+
+        // Check if user has exceeded the 3-cancellation limit
+        if (cancellationTracking.CancellationCount >= 3)
+        {
+            // Block the user for 1 day
+            cancellationTracking.BlockExpiryDate = DateTime.UtcNow.AddDays(1);
+            await _context.SaveChangesAsync();
+
+            return BadRequest(new
+            {
+                message = "You have exceeded your daily cancellation limit (3). You are now blocked from cancelling orders for 24 hours.",
+                isBlocked = true,
+                blockExpiryDate = cancellationTracking.BlockExpiryDate,
+                cancellationLimitReached = true
             });
         }
 
@@ -309,12 +435,19 @@ public class OrdersController : ControllerBase
             item.MenuItem.Stock += item.Quantity;
         }
 
+        // Increment cancellation count
+        cancellationTracking.CancellationCount++;
+
         await _context.SaveChangesAsync();
 
-        return Ok(new { 
-            message = "Order cancelled.", 
-            cancelledCount = cancelledCount + 1,
-            cancellationsRemaining = 1 - cancelledCount  // 2 max - (count+1) = 1 - count
+        var cancellationsRemaining = 3 - cancellationTracking.CancellationCount;
+
+        return Ok(new
+        {
+            message = "Order cancelled.",
+            cancelledCount = cancellationTracking.CancellationCount,
+            cancellationsRemaining = cancellationsRemaining,
+            isBlocked = false
         });
     }
 }
@@ -324,4 +457,12 @@ public class OrdersController : ControllerBase
 public class UpdateOrderStatusRequest
 {
     public string Status { get; set; } = string.Empty;
+}
+
+public class CheckoutRequest
+{
+    public string? DeliveryType { get; set; } = "Pickup"; // Pickup or Delivery
+    public string? Building { get; set; }
+    public string? Room { get; set; }
+    public string? Section { get; set; }
 }

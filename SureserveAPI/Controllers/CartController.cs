@@ -75,13 +75,24 @@ public class CartController : ControllerBase
         if (menuItem == null || !menuItem.IsAvailable)
             return BadRequest(new { message = "Menu item not available." });
 
+        // Validate quantity
+        if (request.Quantity <= 0)
+            return BadRequest(new { message = "Quantity must be greater than 0." });
+
+        if (request.Quantity > menuItem.Stock)
+            return BadRequest(new { message = $"Only {menuItem.Stock} items available in stock." });
+
         // Check if already in cart
         var existingItem = await _context.CartItems
             .FirstOrDefaultAsync(ci => ci.UserId == userId && ci.MenuItemId == request.MenuItemId);
 
         if (existingItem != null)
         {
-            existingItem.Quantity += request.Quantity;
+            var newQuantity = existingItem.Quantity + request.Quantity;
+            if (newQuantity > menuItem.Stock)
+                return BadRequest(new { message = $"Total quantity would exceed available stock. Only {menuItem.Stock} items available." });
+
+            existingItem.Quantity = newQuantity;
         }
         else
         {
@@ -105,6 +116,7 @@ public class CartController : ControllerBase
     {
         var userId = GetUserId();
         var cartItem = await _context.CartItems
+            .Include(ci => ci.MenuItem)
             .FirstOrDefaultAsync(ci => ci.Id == id && ci.UserId == userId);
 
         if (cartItem == null)
@@ -116,6 +128,9 @@ public class CartController : ControllerBase
         }
         else
         {
+            if (request.Quantity > cartItem.MenuItem.Stock)
+                return BadRequest(new { message = $"Only {cartItem.MenuItem.Stock} items available in stock." });
+
             cartItem.Quantity = request.Quantity;
         }
 

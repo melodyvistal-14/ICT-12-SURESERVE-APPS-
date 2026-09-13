@@ -24,6 +24,22 @@ public class Order
     [Column(TypeName = "decimal(10,2)")]
     public decimal TotalAmount { get; set; }
 
+    [Required]
+    [MaxLength(20)]
+    public string DeliveryType { get; set; } = "Pickup"; // Pickup, Delivery
+
+    [Column(TypeName = "decimal(10,2)")]
+    public decimal DeliveryFee { get; set; } = 0m;
+
+    [MaxLength(100)]
+    public string Building { get; set; } = string.Empty;
+
+    [MaxLength(50)]
+    public string Room { get; set; } = string.Empty;
+
+    [MaxLength(50)]
+    public string Section { get; set; } = string.Empty;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

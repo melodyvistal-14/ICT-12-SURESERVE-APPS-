@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SureserveAPI.Models;
 
-public class StudentProfile
+public class TeacherProfile
 {
     public int Id { get; set; }
 
@@ -12,11 +12,11 @@ public class StudentProfile
 
     [Required]
     [MaxLength(20)]
-    public string StudentId { get; set; } = string.Empty; // e.g. 2026-00125
+    public string TeacherId { get; set; } = string.Empty; // e.g. T-2026-00125
 
     [Required]
-    [MaxLength(50)]
-    public string GradeSection { get; set; } = string.Empty; // e.g. Grade 12 - ABM A
+    [MaxLength(100)]
+    public string Department { get; set; } = string.Empty; // e.g. Science, Mathematics
 
     [MaxLength(100)]
     public string Building { get; set; } = string.Empty;
@@ -41,15 +41,12 @@ public class StudentProfile
     [MaxLength(20)]
     public string Birthday { get; set; } = string.Empty;
 
-    [MaxLength(100)]
-    public string Strand { get; set; } = string.Empty;
-
     [MaxLength(255)]
     public string Address { get; set; } = string.Empty;
 
-    /// <summary>URL/path to the student's uploaded School ID photo (used for face-verification at login).</summary>
+    /// <summary>URL/path to the teacher's uploaded School ID photo (used for face-verification at login).</summary>
     [MaxLength(500)]
-    public string StudentIdPhotoUrl { get; set; } = string.Empty;
+    public string TeacherIdPhotoUrl { get; set; } = string.Empty;
 
     // Navigation
     [ForeignKey("UserId")]

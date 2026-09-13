@@ -28,13 +28,15 @@ public class User
 
     [Required]
     [MaxLength(20)]
-    public string Role { get; set; } = "Student"; // Student, Vendor, Admin
+    public string Role { get; set; } = "Student"; // Student, Teacher, Vendor, Admin
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
     public StudentProfile? StudentProfile { get; set; }
+    public TeacherProfile? TeacherProfile { get; set; }
     public VendorProfile? VendorProfile { get; set; }
+    public UserCancellationTracking? CancellationTracking { get; set; }
     public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
     public ICollection<Order> Orders { get; set; } = new List<Order>();
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
