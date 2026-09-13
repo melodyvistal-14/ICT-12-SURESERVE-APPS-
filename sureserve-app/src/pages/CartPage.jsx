@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IoTrash, IoAdd, IoRemove, IoCartOutline, IoClose, IoSearch } from 'react-icons/io5';
+import { IoTrash, IoAdd, IoRemove, IoCartOutline, IoClose, IoSearch, IoInformationCircleOutline } from 'react-icons/io5';
 import { useCart } from '../context/CartContext';
 import api from '../services/api';
 
@@ -65,10 +65,40 @@ export default function CartPage() {
     setCartData(data);
   };
 
+  const [deliveryType, setDeliveryType] = useState('Pickup');
+  const [building, setBuilding] = useState('Main Building');
+  const [room, setRoom] = useState('');
+  const [section, setSection] = useState('');
+
+  // Calculate delivery fee in frontend for preview
+  const getDeliveryFee = (bldg) => {
+    const b = bldg.toLowerCase();
+    if (b === 'main building' || b === 'building a') return 10;
+    if (b === 'science building' || b === 'building b') return 15;
+    if (b === 'arts building' || b === 'building c') return 12;
+    if (b === 'sports complex' || b === 'gym') return 20;
+    if (b === 'annex' || b === 'building d') return 18;
+    return 15; // default
+  };
+
+  const currentDeliveryFee = deliveryType === 'Delivery' ? getDeliveryFee(building) : 0;
+  const grandTotal = (cartData.totalAmount || 0) + currentDeliveryFee;
+
   const handleCheckout = async () => {
+    if (deliveryType === 'Delivery' && (!building || !room || !section)) {
+      setToast('Please fill in Building, Room, and Section for delivery.');
+      setTimeout(() => setToast(''), 3000);
+      return;
+    }
+
     setChecking(true);
     try {
-      const res = await api.post('/orders/checkout');
+      const res = await api.post('/orders/checkout', {
+        deliveryType,
+        building: deliveryType === 'Delivery' ? building : undefined,
+        room: deliveryType === 'Delivery' ? room : undefined,
+        section: deliveryType === 'Delivery' ? section : undefined
+      });
       navigate('/order-confirmed', { state: res.data });
     } catch (err) {
       setToast(err.response?.data?.message || 'Checkout failed');
@@ -152,15 +182,90 @@ export default function CartPage() {
             </button>
           </div>
 
+          {/* Delivery Options */}
+          <div style={{ marginTop: 24, padding: '16px', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)' }}>
+            <h3 style={{ fontSize: 16, marginBottom: 12 }}>Receiving Option</h3>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <button 
+                className={`btn ${deliveryType === 'Pickup' ? 'btn-primary' : 'btn-outline'}`}
+                style={{ flex: 1, padding: '10px 0', fontSize: 14 }}
+                onClick={() => setDeliveryType('Pickup')}
+              >
+                Pick up in Canteen
+              </button>
+              <button 
+                className={`btn ${deliveryType === 'Delivery' ? 'btn-primary' : 'btn-outline'}`}
+                style={{ flex: 1, padding: '10px 0', fontSize: 14 }}
+                onClick={() => setDeliveryType('Delivery')}
+              >
+                Deliver to Room
+              </button>
+            </div>
+
+            {deliveryType === 'Delivery' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Building</label>
+                  <select 
+                    className="form-control" 
+                    value={building} 
+                    onChange={e => setBuilding(e.target.value)}
+                    style={{ padding: '10px', marginTop: 4 }}
+                  >
+                    <option value="Main Building">Main Building</option>
+                    <option value="Science Building">Science Building</option>
+                    <option value="Arts Building">Arts Building</option>
+                    <option value="Sports Complex">Sports Complex</option>
+                    <option value="Annex">Annex</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Room No.</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="e.g. 104"
+                      value={room}
+                      onChange={e => setRoom(e.target.value)}
+                      style={{ padding: '10px', marginTop: 4 }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Section/Dept</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="e.g. STEM A"
+                      value={section}
+                      onChange={e => setSection(e.target.value)}
+                      style={{ padding: '10px', marginTop: 4 }}
+                    />
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--primary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <IoInformationCircleOutline size={14} /> 
+                  Delivery Fee: ₱{currentDeliveryFee.toFixed(2)}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Summary */}
           <div style={{ marginTop: 16, padding: '16px 0' }}>
             <div className="price-row">
               <span className="text-muted">Subtotal ({cartData.itemCount} items)</span>
               <span>₱{cartData.subTotal?.toFixed(2)}</span>
             </div>
-            <div className="price-row total">
+            {deliveryType === 'Delivery' && (
+              <div className="price-row">
+                <span className="text-muted">Delivery Fee</span>
+                <span>₱{currentDeliveryFee.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="price-row total" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-color)' }}>
               <span>Total Amount</span>
-              <span style={{ color: 'var(--primary)' }}>₱{cartData.totalAmount?.toFixed(2)}</span>
+              <span style={{ color: 'var(--primary)' }}>₱{grandTotal.toFixed(2)}</span>
             </div>
           </div>
 
@@ -170,8 +275,8 @@ export default function CartPage() {
           }}>
             <strong style={{ color: 'var(--primary)' }}>📋 How it works:</strong><br />
             ✓ Add as many food items as you want to your cart<br />
-            ✓ Tap "Place Order" when you are ready to reserve<br />
-            ✓ Pay and pick up at the canteen counter
+            ✓ Choose to pick up or have it delivered to your room<br />
+            ✓ Tap "Place Order" to finalize your reservation
           </div>
 
           <button
@@ -180,7 +285,7 @@ export default function CartPage() {
             disabled={checking}
             style={{ marginBottom: 16 }}
           >
-            {checking ? 'Placing Order...' : `Place Order · ₱${cartData.totalAmount?.toFixed(2)}`}
+            {checking ? 'Placing Order...' : `Place Order · ₱${grandTotal.toFixed(2)}`}
           </button>
         </>
       )}
