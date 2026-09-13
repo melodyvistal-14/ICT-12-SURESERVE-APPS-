@@ -143,10 +143,9 @@ public class OrdersController : ControllerBase
 
         // Calculate delivery fee based on building
         decimal deliveryFee = 0m;
-        if (string.Equals(request.DeliveryType, "Delivery", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(request.Building))
+        if (string.Equals(request.DeliveryType, "Delivery", StringComparison.OrdinalIgnoreCase))
         {
-            deliveryFee = CalculateDeliveryFee(request.Building);
+            deliveryFee = CalculateDeliveryFee(request.DistanceMeters, request.Building);
         }
 
         var totalAmount = subtotal + deliveryFee;
@@ -242,18 +241,24 @@ public class OrdersController : ControllerBase
         });
     }
 
-    private decimal CalculateDeliveryFee(string building)
+    private static decimal CalculateDeliveryFee(int? distanceMeters, string? building)
     {
-        // Simple delivery fee calculation based on building
-        // You can customize this based on your school's building layout
-        return building.ToLower() switch
+        // Distance-based fee: ₱5 base + ₱2 per 100m, min ₱5, max ₱50
+        if (distanceMeters.HasValue && distanceMeters.Value > 0)
+        {
+            var fee = 5m + (decimal)Math.Ceiling(distanceMeters.Value / 100.0) * 2m;
+            return Math.Min(Math.Max(fee, 5m), 50m);
+        }
+
+        // Fallback: building-name based fee if no GPS data provided
+        return (building?.ToLower() ?? string.Empty) switch
         {
             "main building" or "building a" => 10m,
             "science building" or "building b" => 15m,
             "arts building" or "building c" => 12m,
             "sports complex" or "gym" => 20m,
             "annex" or "building d" => 18m,
-            _ => 15m // Default fee
+            _ => 15m
         };
     }
 
@@ -466,4 +471,5 @@ public class CheckoutRequest
     public string? Building { get; set; }
     public string? Room { get; set; }
     public string? Section { get; set; }
+    public int? DistanceMeters { get; set; } // GPS distance in meters from canteen to delivery location
 }
