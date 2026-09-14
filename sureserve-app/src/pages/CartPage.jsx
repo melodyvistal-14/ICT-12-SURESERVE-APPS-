@@ -264,7 +264,7 @@ export default function CartPage() {
                     placeholder="e.g. Main Building, Science Hall..."
                     value={building}
                     onChange={e => setBuilding(e.target.value)}
-                    style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: 13 }}
                   />
                 </div>
 
@@ -280,7 +280,7 @@ export default function CartPage() {
                       placeholder="e.g. 104"
                       value={room}
                       onChange={e => setRoom(e.target.value)}
-                      style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: 13 }}
                     />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -293,7 +293,7 @@ export default function CartPage() {
                       placeholder="e.g. STEM A"
                       value={section}
                       onChange={e => setSection(e.target.value)}
-                      style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', fontSize: 13 }}
                     />
                   </div>
                 </div>
