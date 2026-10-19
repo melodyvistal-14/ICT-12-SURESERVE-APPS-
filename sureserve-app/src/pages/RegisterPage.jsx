@@ -196,10 +196,19 @@ export default function RegisterPage({ defaultRole }) {
       return;
     }
 
-    // Validate Teacher ID format
-    if (isTeacher && form.teacherId && !form.teacherId.startsWith('T-')) {
-      setError('Teacher ID must start with "T-" (e.g., T-2026-00125)');
-      return;
+    // Validate Teacher ID / Employee No format
+    if (isTeacher) {
+      const teacherIdVal = form.teacherId?.trim() || '';
+      if (!teacherIdVal) {
+        setError('Please enter your Employee No. or Teacher ID.');
+        return;
+      }
+      // Allow pure numbers (e.g. 6452385), EN/EMP prefixes (e.g. EN-6452385, EN6452385), or T/T- format
+      const isValidId = /^[A-Za-z0-9\-_]{4,20}$/.test(teacherIdVal);
+      if (!isValidId) {
+        setError('Please enter a valid Employee No. (e.g., 6452385 or EN-6452385)');
+        return;
+      }
     }
 
     setLoading(true);
@@ -331,27 +340,27 @@ export default function RegisterPage({ defaultRole }) {
 
             {/* ID Number - Student or Teacher */}
             <div className="input-group">
-              <label>{isTeacher ? 'Teacher ID Number' : 'Student ID Number'}</label>
+              <label>{isTeacher ? 'Employee No. / Teacher ID' : 'Student ID Number'}</label>
               <input 
                 className="input" 
                 type="text" 
-                placeholder={isTeacher ? 'e.g. T-2026-00125' : 'e.g. 2026-00125'} 
+                placeholder={isTeacher ? 'e.g. 6452385 or EN-6452385' : 'e.g. 2026-00125'} 
                 value={isTeacher ? form.teacherId : form.studentId} 
                 onChange={(e) => isTeacher ? setForm({ ...form, teacherId: e.target.value }) : setForm({ ...form, studentId: e.target.value })} 
                 required 
               />
               <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                {isTeacher ? '⚠️ Teacher IDs must start with "T-" (e.g., T-2026-00125). Each teacher can only create one account.' : '⚠️ Each student can only create one account. Duplicate IDs will be rejected.'}
+                {isTeacher ? '⚠️ Enter your DepEd Employee No. (e.g., 6452385 or EN-6452385). Each teacher can only create one account.' : '⚠️ Each student can only create one account. Duplicate IDs will be rejected.'}
               </span>
             </div>
 
             {/* School ID Upload — Strictly Required */}
             <div style={{ background: '#FFF7ED', border: '2px solid #FB923C', borderRadius: 14, padding: '10px 14px', marginBottom: 8, fontSize: 12, color: '#9A3412', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <IoIdCard size={16} style={{ flexShrink: 0 }} />
-              <span>🚨 {isTeacher ? 'Teacher' : 'School'} ID Photo is <u>required</u> — registration will be declined without it. This is used for ID scanning verification every time you log in.</span>
+              <span>🚨 {isTeacher ? 'Teacher / Employee' : 'School'} ID Photo is <u>required</u> — registration will be declined without it. This is used for ID scanning verification every time you log in.</span>
             </div>
             <ImageUploadBox 
-              title={`${isTeacher ? 'Teacher' : 'School'} ID Photo`} 
+              title={`${isTeacher ? 'Teacher / Employee' : 'School'} ID Photo`} 
               subtitle="REQUIRED — No ID = No Account" 
               icon={<IoIdCard size={20} />} 
               fileUrl={idPhotoUrl} 

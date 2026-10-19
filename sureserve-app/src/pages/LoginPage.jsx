@@ -95,8 +95,14 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
 
       const text = result.data.text.replace(/\s+/g, '').toLowerCase();
       const expectedId = username.replace(/\s+/g, '').toLowerCase();
+      // Extract numeric part (e.g. "6452385" from "EN-6452385", "T-6452385", or "6452385")
+      const digitsOnly = expectedId.replace(/\D/g, '');
 
-      if (text.includes(expectedId)) {
+      // Direct match or numeric match (if at least 4 digits)
+      const isMatched = text.includes(expectedId) ||
+        (digitsOnly.length >= 4 && text.includes(digitsOnly));
+
+      if (isMatched) {
         setStatus('matched');
         setMessage(`✅ Identity verified! ID (${username}) matched.`);
       } else {
@@ -156,7 +162,7 @@ function IdVerificationStep({ username, password, onSuccess, onCancel }) {
       </div>
 
       <p style={{ fontSize: 13, color: '#475569', textAlign: 'center', marginBottom: 20, lineHeight: 1.5 }}>
-        Scan your <strong>School/Teacher ID card</strong>. Our system will read the text to verify your ID.
+        Scan your <strong>School ID / Teacher Employee Card</strong>. Our system will read the text to verify your ID.
       </p>
 
       {/* Camera feed or captured photo */}
@@ -362,7 +368,7 @@ export default function LoginPage() {
         navigate('/');
       }
     } catch (err) {
-      setError(err.response?.data?.message || (loginRole === 'Vendor' ? 'Incorrect passkey or password.' : 'Incorrect Student/Teacher ID or password.'));
+      setError(err.response?.data?.message || (loginRole === 'Vendor' ? 'Incorrect passkey or password.' : 'Incorrect ID Number / Employee No. or password.'));
     } finally {
       setLoading(false);
     }
@@ -518,11 +524,11 @@ export default function LoginPage() {
 
                 <form onSubmit={(e) => handleLoginSubmit(e)}>
                   <div className="input-group">
-                    <label>{loginRole === 'Vendor' ? 'Vendor Passkey' : 'Student / Teacher ID Number'}</label>
+                    <label>{loginRole === 'Vendor' ? 'Vendor Passkey' : 'Student ID / Teacher Employee No.'}</label>
                     <input
                       className="input"
                       type="text"
-                      placeholder={loginRole === 'Vendor' ? 'Enter your vendor passkey' : 'e.g. 2026-00125 or T-2026-00125'}
+                      placeholder={loginRole === 'Vendor' ? 'Enter your vendor passkey' : 'e.g. 2026-00125 or 6452385'}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
@@ -563,7 +569,7 @@ export default function LoginPage() {
                       display: 'flex', alignItems: 'center', gap: 8,
                     }}>
                       <IoIdCard size={16} style={{ flexShrink: 0 }} />
-                      <span>After credentials are verified, you'll be asked to scan your <strong>School/Teacher ID card</strong> for identity confirmation.</span>
+                      <span>After credentials are verified, you'll be asked to scan your <strong>School ID / Teacher Employee Card</strong> for identity confirmation.</span>
                     </div>
                   )}
                   {loginRole === 'Vendor' && (

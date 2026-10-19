@@ -243,27 +243,32 @@ public class AuthController : ControllerBase
             request.Username = request.StudentId.Trim();
         }
 
-        // For teachers: use Teacher ID as their username
+        // For teachers: use Employee No. / Teacher ID as their username
         if (role == "Teacher")
         {
             if (string.IsNullOrWhiteSpace(request.TeacherId))
-                return BadRequest(new { message = "Teacher ID Number is required." });
+                return BadRequest(new { message = "Employee No. / Teacher ID is required." });
 
-            if (!request.TeacherId.Trim().StartsWith("T-", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { message = "Teacher ID must start with \"T-\" (e.g., T-2026-00125)." });
+            var teacherId = request.TeacherId.Trim();
+            // Accept DepEd Employee No. (e.g. 6452385), EN/EMP prefix (e.g. EN-6452385, EN6452385), or legacy T/T- format
+            var isValidTeacherId = teacherId.Length >= 4 &&
+                System.Text.RegularExpressions.Regex.IsMatch(teacherId, @"^[A-Za-z0-9\-_]{4,20}$");
+
+            if (!isValidTeacherId)
+                return BadRequest(new { message = "Please enter a valid Employee No. (e.g., 6452385 or EN-6452385)." });
 
             // STRICT: Teacher ID photo is mandatory
             if (string.IsNullOrWhiteSpace(request.TeacherIdPhotoUrl))
-                return BadRequest(new { message = "Registration declined: You must upload your Teacher ID photo to register. This is required for identity verification." });
+                return BadRequest(new { message = "Registration declined: You must upload your Teacher ID / Employee Card photo to register. This is required for identity verification." });
 
             // Use Teacher ID as the username
-            request.Username = request.TeacherId.Trim();
+            request.Username = teacherId;
 
             // Check duplicate Teacher ID
             var teacherIdAlreadyUsed = _context.TeacherProfiles
-                .Any(tp => tp.TeacherId == request.TeacherId.Trim());
+                .Any(tp => tp.TeacherId == teacherId);
             if (teacherIdAlreadyUsed)
-                return BadRequest(new { message = "A teacher account with this Teacher ID already exists. Each teacher can only have one account." });
+                return BadRequest(new { message = "A teacher account with this Employee No. / Teacher ID already exists. Each teacher can only have one account." });
         }
 
         // For vendors: use the Passkey code as their username (no separate username needed)
@@ -297,7 +302,7 @@ public class AuthController : ControllerBase
             return role == "Student"
                 ? BadRequest(new { message = "A student account with this Student ID already exists. Each student can only have one account." })
                 : role == "Teacher"
-                ? BadRequest(new { message = "A teacher account with this Teacher ID already exists. Each teacher can only have one account." })
+                ? BadRequest(new { message = "A teacher account with this Employee No. / Teacher ID already exists. Each teacher can only have one account." })
                 : BadRequest(new { message = "This Vendor Passkey has already been registered." });
         }
 

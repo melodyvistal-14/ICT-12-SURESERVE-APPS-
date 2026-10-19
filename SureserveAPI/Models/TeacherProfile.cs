@@ -12,7 +12,7 @@ public class TeacherProfile
 
     [Required]
     [MaxLength(20)]
-    public string TeacherId { get; set; } = string.Empty; // e.g. T-2026-00125
+    public string TeacherId { get; set; } = string.Empty; // e.g. 6452385 or EN-6452385 or T-2026-00125
 
     [Required]
     [MaxLength(100)]
