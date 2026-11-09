@@ -29,6 +29,7 @@ public class UsersController : ControllerBase
         var userId = GetUserId();
         var user = await _context.Users
             .Include(u => u.StudentProfile)
+            .Include(u => u.TeacherProfile)
             .Include(u => u.VendorProfile)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
@@ -52,10 +53,28 @@ public class UsersController : ControllerBase
                 user.StudentProfile.Building,
                 user.StudentProfile.Floor,
                 user.StudentProfile.Room,
+                user.StudentProfile.Section,
+                user.StudentProfile.FirstName,
+                user.StudentProfile.LastName,
                 user.StudentProfile.StudentIdPhotoUrl,
                 user.StudentProfile.Address,
                 user.StudentProfile.Birthday,
                 user.StudentProfile.Age
+            },
+            TeacherProfile = user.TeacherProfile == null ? null : new
+            {
+                user.TeacherProfile.TeacherId,
+                user.TeacherProfile.Department,
+                user.TeacherProfile.Building,
+                user.TeacherProfile.Floor,
+                user.TeacherProfile.Room,
+                user.TeacherProfile.Section,
+                user.TeacherProfile.FirstName,
+                user.TeacherProfile.LastName,
+                user.TeacherProfile.TeacherIdPhotoUrl,
+                user.TeacherProfile.Address,
+                user.TeacherProfile.Birthday,
+                user.TeacherProfile.Age
             },
             VendorProfile = user.VendorProfile == null ? null : new
             {
@@ -82,6 +101,7 @@ public class UsersController : ControllerBase
         var userId = GetUserId();
         var user = await _context.Users
             .Include(u => u.StudentProfile)
+            .Include(u => u.TeacherProfile)
             .Include(u => u.VendorProfile)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
@@ -112,6 +132,27 @@ public class UsersController : ControllerBase
                 user.StudentProfile.Room = request.StudentInfo.Room.Trim();
             if (request.StudentInfo.Address != null)
                 user.StudentProfile.Address = request.StudentInfo.Address.Trim();
+        }
+
+        // Update teacher profile if applicable
+        if (user.Role == "Teacher" && request.TeacherInfo != null)
+        {
+            if (user.TeacherProfile == null)
+            {
+                user.TeacherProfile = new Models.TeacherProfile { UserId = userId };
+                _context.TeacherProfiles.Add(user.TeacherProfile);
+            }
+
+            if (request.TeacherInfo.Department != null)
+                user.TeacherProfile.Department = request.TeacherInfo.Department.Trim();
+            if (request.TeacherInfo.Building != null)
+                user.TeacherProfile.Building = request.TeacherInfo.Building.Trim();
+            if (request.TeacherInfo.Floor != null)
+                user.TeacherProfile.Floor = request.TeacherInfo.Floor.Trim();
+            if (request.TeacherInfo.Room != null)
+                user.TeacherProfile.Room = request.TeacherInfo.Room.Trim();
+            if (request.TeacherInfo.Address != null)
+                user.TeacherProfile.Address = request.TeacherInfo.Address.Trim();
         }
 
         // Update vendor profile if applicable
@@ -188,12 +229,22 @@ public class UpdateProfileRequest
     public string? ContactNumber { get; set; }
     public string? ProfileImageUrl { get; set; }
     public StudentInfoRequest? StudentInfo { get; set; }
+    public TeacherInfoRequest? TeacherInfo { get; set; }
     public VendorInfoRequest? VendorInfo { get; set; }
 }
 
 public class StudentInfoRequest
 {
     public string? GradeSection { get; set; }
+    public string? Building { get; set; }
+    public string? Floor { get; set; }
+    public string? Room { get; set; }
+    public string? Address { get; set; }
+}
+
+public class TeacherInfoRequest
+{
+    public string? Department { get; set; }
     public string? Building { get; set; }
     public string? Floor { get; set; }
     public string? Room { get; set; }

@@ -176,7 +176,14 @@ using (var scope = app.Services.CreateScope())
         dbConn.Close();
     }
 
-    dbContext.Database.Migrate(); // Ensure database schema is up-to-date
+    try
+    {
+        dbContext.Database.Migrate(); // Ensure database schema is up-to-date
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Migration notice: {ex.Message}");
+    }
     DbSeeder.Seed(dbContext);
 }
 

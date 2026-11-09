@@ -271,8 +271,11 @@ export default function ProfilePage() {
     }
   };
 
-  const isStudent = user?.role === 'Student' || profileData?.role === 'Student';
+  const isVendor = user?.role === 'Vendor' || profileData?.role === 'Vendor';
+  const isTeacher = user?.role === 'Teacher' || profileData?.role === 'Teacher';
+  const isStudent = user?.role === 'Student' || profileData?.role === 'Student' || (!isVendor && !isTeacher);
   const studentInfo = profileData?.studentProfile;
+  const teacherInfo = profileData?.teacherProfile;
   const vendorInfo = profileData?.vendorProfile;
   const facePhoto = profileData?.profileImageUrl || user?.profileImageUrl;
 
@@ -290,7 +293,7 @@ export default function ProfilePage() {
     <div className="page" style={{ paddingBottom: '100px' }}>
       
       {/* VENDOR PROFILE HEADER WITH STALL PICTURE & OWNER FACE */}
-      {!isStudent && (
+      {isVendor && (
         <div style={{ marginBottom: 20 }}>
           {/* Stall Banner / Owner with Food Picture */}
           <div style={{
@@ -430,15 +433,15 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* STUDENT PROFILE HEADER */}
-      {isStudent && (
+      {/* STUDENT / TEACHER PROFILE HEADER */}
+      {!isVendor && (
         <div style={{ padding: '28px 0 20px', textAlign: 'center', position: 'relative', background: 'linear-gradient(to bottom, var(--surface-hover), transparent)', borderRadius: 24, marginBottom: 16 }}>
           <div style={{ position: 'relative', display: 'inline-block' }}>
             {facePhoto ? (
-              /* Student: actual uploaded face picture */
+              /* Actual uploaded face picture */
               <img
                 src={facePhoto}
-                alt={profileData?.fullName || "Student Face"}
+                alt={profileData?.fullName || "User Face"}
                 style={{
                   width: 96, height: 96, borderRadius: '50%',
                   objectFit: 'cover',
@@ -447,15 +450,17 @@ export default function ProfilePage() {
                 }}
               />
             ) : (
-              /* Student: initials avatar */
+              /* Initials avatar */
               <div style={{
                 width: 96, height: 96, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #15803D 0%, #166534 100%)',
+                background: isTeacher
+                  ? 'linear-gradient(135deg, #1E40AF 0%, #1D4ED8 100%)'
+                  : 'linear-gradient(135deg, #15803D 0%, #166534 100%)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 border: '4px solid #fff', boxShadow: '0 4px 16px rgba(22,101,52,0.25)',
                 fontSize: 34, fontWeight: 800, color: 'white', letterSpacing: '-1px',
               }}>
-                {(profileData?.fullName || user?.fullName || 'S').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                {(profileData?.fullName || user?.fullName || (isTeacher ? 'T' : 'S')).split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
               </div>
             )}
 
@@ -464,7 +469,7 @@ export default function ProfilePage() {
               onClick={() => setShowEditModal(true)}
               style={{
                 position: 'absolute', bottom: 2, right: 2,
-                background: '#15803D', color: 'white',
+                background: isTeacher ? '#1D4ED8' : '#15803D', color: 'white',
                 width: 30, height: 30, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 border: '3px solid white', cursor: 'pointer',
@@ -481,16 +486,81 @@ export default function ProfilePage() {
           <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center', gap: 8 }}>
             <span
               className="badge badge-preparing"
-              style={{ fontSize: 12, padding: '6px 14px', borderRadius: '9999px', textTransform: 'none' }}
+              style={{
+                fontSize: 12, padding: '6px 14px', borderRadius: '9999px', textTransform: 'none',
+                background: isTeacher ? '#DBEAFE' : undefined,
+                color: isTeacher ? '#1E40AF' : undefined,
+              }}
             >
-              🎓 Student Account
+              {isTeacher ? '👨‍🏫 Teacher / Faculty Account' : '🎓 Student Account'}
             </span>
           </div>
         </div>
       )}
 
+      {/* TEACHER SPECIFIC INFORMATION CARD */}
+      {isTeacher && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1.5px solid #DBEAFE',
+            padding: '20px',
+            marginBottom: '20px',
+            boxShadow: '0 4px 14px rgba(37, 99, 235, 0.06)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <IoSchool size={20} color="#2563EB" />
+              Teacher & Faculty Info
+            </h3>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Teacher ID */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#FFFFFF', padding: '12px 14px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <IoCard size={20} color="#2563EB" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Teacher / Employee ID</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                  {teacherInfo?.teacherId || 'T-DEMO'}
+                </div>
+              </div>
+            </div>
+
+            {/* Department */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#FFFFFF', padding: '12px 14px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <IoSchool size={20} color="#0284C7" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Department</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                  {teacherInfo?.department || 'Science Department'}
+                </div>
+              </div>
+            </div>
+
+            {/* Faculty Room Location */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#FFFFFF', padding: '12px 14px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <IoLocation size={20} color="#D97706" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Office / Faculty Room</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                  {teacherInfo?.building || 'Faculty Building'}
+                  {(teacherInfo?.floor || teacherInfo?.room) && (
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginTop: 2 }}>
+                      {teacherInfo?.floor} • {teacherInfo?.room}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* STUDENT SPECIFIC INFORMATION CARD */}
-      {isStudent && (
+      {!isTeacher && isStudent && (
         <div
           style={{
             background: 'linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)',

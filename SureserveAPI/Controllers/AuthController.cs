@@ -57,7 +57,10 @@ public class AuthController : ControllerBase
             .Include(u => u.VendorProfile)
             .Include(u => u.StudentProfile)
             .Include(u => u.TeacherProfile)
-            .FirstOrDefault(u => u.Username == targetUsername && u.Password == request.Password);
+            .FirstOrDefault(u => (u.Username.ToLower() == targetUsername.ToLower() ||
+                                 (u.StudentProfile != null && u.StudentProfile.StudentId.ToLower() == targetUsername.ToLower()) ||
+                                 (u.TeacherProfile != null && u.TeacherProfile.TeacherId.ToLower() == targetUsername.ToLower()))
+                                 && u.Password == request.Password);
 
         if (user == null)
         {
@@ -72,14 +75,21 @@ public class AuthController : ControllerBase
                 return BadRequest(new { message = "Access Denied: Canteen Vendors must log in via the Vendor Portal." });
             }
 
-            if (string.Equals(request.PortalRole, "Vendor", StringComparison.OrdinalIgnoreCase) && user.Role == "Student")
+            if (string.Equals(request.PortalRole, "Vendor", StringComparison.OrdinalIgnoreCase) && (user.Role == "Student" || user.Role == "Teacher"))
             {
-                return BadRequest(new { message = "Access Denied: Students are NOT authorized to log into the Canteen Vendor Portal." });
+                return BadRequest(new { message = "Access Denied: Students and Teachers are NOT authorized to log into the Canteen Vendor Portal." });
             }
         }
 
-        // 3. For students and teachers: enforce ID verification
-        if (user.Role == "Student")
+        // Check if account is a Demo account (ID verification bypassed)
+        var isDemoAccount = user.Username.StartsWith("demo", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(user.Username, "student", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(user.Username, "teacher", StringComparison.OrdinalIgnoreCase)
+            || (user.StudentProfile != null && user.StudentProfile.StudentId.Contains("DEMO", StringComparison.OrdinalIgnoreCase))
+            || (user.TeacherProfile != null && user.TeacherProfile.TeacherId.Contains("DEMO", StringComparison.OrdinalIgnoreCase));
+
+        // 3. For students and teachers: enforce ID verification unless demo account
+        if (!isDemoAccount && user.Role == "Student")
         {
             var hasIdPhoto = !string.IsNullOrWhiteSpace(user.StudentProfile?.StudentIdPhotoUrl);
 
@@ -97,9 +107,9 @@ public class AuthController : ControllerBase
             });
         }
 
-        if (user.Role == "Teacher")
+        if (!isDemoAccount && user.Role == "Teacher")
         {
-            var teacherProfile = _context.TeacherProfiles.FirstOrDefault(tp => tp.UserId == user.Id);
+            var teacherProfile = user.TeacherProfile ?? _context.TeacherProfiles.FirstOrDefault(tp => tp.UserId == user.Id);
             var hasIdPhoto = !string.IsNullOrWhiteSpace(teacherProfile?.TeacherIdPhotoUrl);
 
             if (!hasIdPhoto)
@@ -133,14 +143,33 @@ public class AuthController : ControllerBase
 
         var user = _context.Users
             .Include(u => u.StudentProfile)
-            .FirstOrDefault(u => u.Username == request.Username.Trim() && u.Password == request.Password);
+            .Include(u => u.TeacherProfile)
+            .FirstOrDefault(u => (u.Username.ToLower() == request.Username.Trim().ToLower() ||
+                                 (u.StudentProfile != null && u.StudentProfile.StudentId.ToLower() == request.Username.Trim().ToLower()) ||
+                                 (u.TeacherProfile != null && u.TeacherProfile.TeacherId.ToLower() == request.Username.Trim().ToLower()))
+                                 && u.Password == request.Password);
 
-        if (user == null || user.Role != "Student")
+        if (user == null || (user.Role != "Student" && user.Role != "Teacher"))
         {
             return Unauthorized(new { message = "Invalid credentials." });
         }
 
-        var photoUrl = user.StudentProfile?.StudentIdPhotoUrl ?? string.Empty;
+        var isDemoAccount = user.Username.StartsWith("demo", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(user.Username, "student", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(user.Username, "teacher", StringComparison.OrdinalIgnoreCase)
+            || (user.StudentProfile != null && user.StudentProfile.StudentId.Contains("DEMO", StringComparison.OrdinalIgnoreCase))
+            || (user.TeacherProfile != null && user.TeacherProfile.TeacherId.Contains("DEMO", StringComparison.OrdinalIgnoreCase));
+
+        if (isDemoAccount)
+        {
+            var skipToken = GenerateJwtToken(user);
+            return Ok(new { requiresIdVerification = false, token = skipToken, studentIdPhotoUrl = (string?)null });
+        }
+
+        var photoUrl = user.Role == "Teacher"
+            ? user.TeacherProfile?.TeacherIdPhotoUrl ?? string.Empty
+            : user.StudentProfile?.StudentIdPhotoUrl ?? string.Empty;
+
         if (string.IsNullOrWhiteSpace(photoUrl))
         {
             // No ID photo stored — skip verification, return full token
@@ -164,7 +193,12 @@ public class AuthController : ControllerBase
         }
 
         var user = _context.Users
-            .FirstOrDefault(u => u.Username == request.Username.Trim() && u.Password == request.Password);
+            .Include(u => u.StudentProfile)
+            .Include(u => u.TeacherProfile)
+            .FirstOrDefault(u => (u.Username.ToLower() == request.Username.Trim().ToLower() ||
+                                 (u.StudentProfile != null && u.StudentProfile.StudentId.ToLower() == request.Username.Trim().ToLower()) ||
+                                 (u.TeacherProfile != null && u.TeacherProfile.TeacherId.ToLower() == request.Username.Trim().ToLower()))
+                                 && u.Password == request.Password);
 
         if (user == null)
         {

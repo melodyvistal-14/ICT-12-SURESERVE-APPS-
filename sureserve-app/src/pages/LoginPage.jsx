@@ -508,7 +508,7 @@ export default function LoginPage() {
                 {/* Step indicator for users/students/teachers */}
                 {loginRole !== 'Vendor' && (
                   <div style={{ height: 4, background: '#E2E8F0', borderRadius: 4, marginBottom: 20, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: '50%', background: 'linear-gradient(90deg, #15803D, #22C55E)', borderRadius: 4, transition: 'width 0.4s ease' }} />
+                    <div style={{ height: '100%', width: (username.toLowerCase().startsWith('demo') || username.toLowerCase() === 'student' || username.toLowerCase() === 'teacher') ? '100%' : '50%', background: 'linear-gradient(90deg, #15803D, #22C55E)', borderRadius: 4, transition: 'width 0.4s ease' }} />
                   </div>
                 )}
 
@@ -519,6 +519,88 @@ export default function LoginPage() {
                     fontSize: 12, fontWeight: 600, marginBottom: 14,
                   }}>
                     {error}
+                  </div>
+                )}
+
+                {/* Quick Demo Access Bar */}
+                {loginRole !== 'Vendor' && (
+                  <div style={{
+                    marginBottom: 16,
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
+                    borderRadius: 14,
+                    border: '1px solid #E2E8F0',
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>✨ Quick Demo Accounts (No ID Scan Needed)</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUsername('demostudent');
+                          setPassword('student123');
+                        }}
+                        style={{
+                          padding: '10px 8px', borderRadius: 10,
+                          border: username === 'demostudent' ? '2px solid #15803D' : '1px solid #BBF7D0',
+                          background: username === 'demostudent' ? '#DCFCE7' : '#FFFFFF',
+                          color: '#15803D', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <div>🎓 Demo Student</div>
+                        <div style={{ fontSize: 10, fontWeight: 500, color: '#166534', marginTop: 2 }}>demostudent / student123</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUsername('demoteacher');
+                          setPassword('teacher123');
+                        }}
+                        style={{
+                          padding: '10px 8px', borderRadius: 10,
+                          border: username === 'demoteacher' ? '2px solid #2563EB' : '1px solid #BFDBFE',
+                          background: username === 'demoteacher' ? '#DBEAFE' : '#FFFFFF',
+                          color: '#1D4ED8', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <div>👨‍🏫 Demo Teacher</div>
+                        <div style={{ fontSize: 10, fontWeight: 500, color: '#1E40AF', marginTop: 2 }}>demoteacher / teacher123</div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {loginRole === 'Vendor' && (
+                  <div style={{
+                    marginBottom: 16,
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
+                    borderRadius: 14,
+                    border: '1px solid #E2E8F0',
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                      <span>✨ Try Demo Vendor</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUsername('SURESERVE-PASS-9081');
+                        setPassword('vendor123');
+                      }}
+                      style={{
+                        width: '100%', padding: '10px 12px', borderRadius: 10,
+                        border: username === 'SURESERVE-PASS-9081' ? '2px solid #166534' : '1px solid #BBF7D0',
+                        background: username === 'SURESERVE-PASS-9081' ? '#DCFCE7' : '#FFFFFF',
+                        color: '#166534', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}
+                    >
+                      <div>🏪 Tia Mel's Canteen</div>
+                      <div style={{ fontSize: 11, fontWeight: 500, color: '#166534' }}>Passkey: SURESERVE-PASS-9081 / vendor123</div>
+                    </button>
                   </div>
                 )}
 
@@ -562,15 +644,27 @@ export default function LoginPage() {
                   </div>
 
                   {loginRole !== 'Vendor' && (
-                    <div style={{
-                      background: '#F0FDF4', border: '1px solid #BBF7D0',
-                      borderRadius: 10, padding: '10px 12px', marginBottom: 14,
-                      fontSize: 12, color: '#15803D', fontWeight: 500,
-                      display: 'flex', alignItems: 'center', gap: 8,
-                    }}>
-                      <IoIdCard size={16} style={{ flexShrink: 0 }} />
-                      <span>After credentials are verified, you'll be asked to scan your <strong>School ID / Teacher Employee Card</strong> for identity confirmation.</span>
-                    </div>
+                    (username.toLowerCase().startsWith('demo') || username.toLowerCase() === 'student' || username.toLowerCase() === 'teacher' || username.toUpperCase().includes('DEMO')) ? (
+                      <div style={{
+                        background: '#EFF6FF', border: '1px solid #BFDBFE',
+                        borderRadius: 10, padding: '10px 12px', marginBottom: 14,
+                        fontSize: 12, color: '#1E40AF', fontWeight: 600,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                      }}>
+                        <IoCheckmarkCircle size={18} style={{ flexShrink: 0, color: '#2563EB' }} />
+                        <span>Demo Account detected: School ID verification is <strong>bypassed</strong>. You will be logged in immediately.</span>
+                      </div>
+                    ) : (
+                      <div style={{
+                        background: '#F0FDF4', border: '1px solid #BBF7D0',
+                        borderRadius: 10, padding: '10px 12px', marginBottom: 14,
+                        fontSize: 12, color: '#15803D', fontWeight: 500,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                      }}>
+                        <IoIdCard size={16} style={{ flexShrink: 0 }} />
+                        <span>After credentials are verified, you'll be asked to scan your <strong>School ID / Teacher Employee Card</strong> for identity confirmation.</span>
+                      </div>
+                    )
                   )}
                   {loginRole === 'Vendor' && (
                     <div style={{
@@ -597,7 +691,9 @@ export default function LoginPage() {
                       ? 'Verifying...'
                       : loginRole === 'Vendor'
                         ? 'Sign In as Vendor 🏪'
-                        : 'Continue →'}
+                        : (username.toLowerCase().startsWith('demo') || username.toLowerCase() === 'student' || username.toLowerCase() === 'teacher' || username.toUpperCase().includes('DEMO'))
+                          ? 'Sign In (Instant Demo Access) 🚀'
+                          : 'Continue →'}
                   </button>
 
                   <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: '#64748B' }}>
