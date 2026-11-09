@@ -210,10 +210,11 @@ export default function ProfilePage() {
           contactNumber: res.data.contactNumber || '',
           email: res.data.email || '',
           gradeSection: res.data.studentProfile?.gradeSection || 'Grade 12 - STEM A',
-          building: res.data.studentProfile?.building || 'Main Academic Building',
-          floor: res.data.studentProfile?.floor || '3rd Floor',
-          room: res.data.studentProfile?.room || 'Room 302',
-          address: res.data.studentProfile?.address || res.data.vendorProfile?.address || '',
+          department: res.data.teacherProfile?.department || 'Science Department',
+          building: res.data.studentProfile?.building || res.data.teacherProfile?.building || 'Main Academic Building',
+          floor: res.data.studentProfile?.floor || res.data.teacherProfile?.floor || '1st Floor',
+          room: res.data.studentProfile?.room || res.data.teacherProfile?.room || 'Room 101',
+          address: res.data.studentProfile?.address || res.data.teacherProfile?.address || res.data.vendorProfile?.address || '',
           shopName: res.data.vendorProfile?.shopName || '',
           description: res.data.vendorProfile?.description || '',
           stallImageUrl: res.data.vendorProfile?.stallImageUrl || '',
@@ -243,7 +244,15 @@ export default function ProfilePage() {
         email: editForm.email,
       };
 
-      if (isStudent) {
+      if (isTeacher) {
+        payload.teacherInfo = {
+          department: editForm.department,
+          building: editForm.building,
+          floor: editForm.floor,
+          room: editForm.room,
+          address: editForm.address,
+        };
+      } else if (isStudent) {
         payload.studentInfo = {
           gradeSection: editForm.gradeSection,
           building: editForm.building,
@@ -251,7 +260,7 @@ export default function ProfilePage() {
           room: editForm.room,
           address: editForm.address,
         };
-      } else {
+      } else if (isVendor) {
         payload.vendorInfo = {
           shopName: editForm.shopName,
           description: editForm.description,
@@ -273,7 +282,7 @@ export default function ProfilePage() {
 
   const isVendor = user?.role === 'Vendor' || profileData?.role === 'Vendor';
   const isTeacher = user?.role === 'Teacher' || profileData?.role === 'Teacher';
-  const isStudent = user?.role === 'Student' || profileData?.role === 'Student' || (!isVendor && !isTeacher);
+  const isStudent = !isVendor && !isTeacher;
   const studentInfo = profileData?.studentProfile;
   const teacherInfo = profileData?.teacherProfile;
   const vendorInfo = profileData?.vendorProfile;
@@ -742,13 +751,13 @@ export default function ProfilePage() {
         Logout Account
       </button>
 
-      {/* EDIT PROFILE MODAL FOR STUDENT AND VENDOR */}
+      {/* EDIT PROFILE MODAL */}
       {showEditModal && (
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
           <div className="modal-content" style={{ maxHeight: '88vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ fontSize: 17, fontWeight: 700 }}>
-                {isStudent ? 'Edit Student Profile 🎓' : 'Edit Stall & Owner Profile 🏪'}
+                {isTeacher ? 'Edit Teacher Profile 👨‍🏫' : isStudent ? 'Edit Student Profile 🎓' : 'Edit Stall & Owner Profile 🏪'}
               </h3>
               <button
                 type="button"
@@ -763,15 +772,15 @@ export default function ProfilePage() {
               
               {/* FACE PROFILE PICTURE UPLOAD */}
               <ProfileImageUploader
-                label={isStudent ? "Face Profile Picture" : "Owner Face Profile Picture"}
+                label={isVendor ? "Owner Face Profile Picture" : "Face Profile Picture"}
                 subtitle="Upload a clear picture of your face"
                 currentUrl={editForm.profileImageUrl}
                 icon={<IoPerson size={16} />}
                 onUploaded={(url) => setEditForm(prev => ({ ...prev, profileImageUrl: url }))}
               />
 
-              {/* VENDOR STALL PICTURE UPLOAD (OWNER WITH FOOD) */}
-              {!isStudent && (
+              {/* VENDOR STALL PICTURE UPLOAD (OWNER WITH FOOD) - ONLY FOR VENDORS */}
+              {isVendor && (
                 <ProfileImageUploader
                   label="Stall Showcase Picture"
                   subtitle="Picture of the owner with food sold at the stall"
@@ -783,7 +792,7 @@ export default function ProfilePage() {
 
               {/* FULL NAME */}
               <div className="input-group">
-                <label>{isStudent ? 'Full Name' : 'Owner Full Name'}</label>
+                <label>{isVendor ? 'Owner Full Name' : 'Full Name'}</label>
                 <input
                   className="input"
                   value={editForm.fullName}
@@ -815,8 +824,65 @@ export default function ProfilePage() {
                 />
               </div>
 
+              {/* TEACHER SPECIFIC FIELDS */}
+              {isTeacher && (
+                <>
+                  <div className="input-group">
+                    <label>Department</label>
+                    <input
+                      className="input"
+                      placeholder="e.g. Science Department / Mathematics"
+                      value={editForm.department}
+                      onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="input-group">
+                    <label>Faculty Building</label>
+                    <input
+                      className="input"
+                      placeholder="e.g. Faculty Building / Bldg B"
+                      value={editForm.building}
+                      onChange={(e) => setEditForm({ ...editForm, building: e.target.value })}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="input-group">
+                      <label>Floor</label>
+                      <input
+                        className="input"
+                        placeholder="e.g. 1st Floor"
+                        value={editForm.floor}
+                        onChange={(e) => setEditForm({ ...editForm, floor: e.target.value })}
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label>Room / Office</label>
+                      <input
+                        className="input"
+                        placeholder="e.g. Faculty Room 101"
+                        value={editForm.room}
+                        onChange={(e) => setEditForm({ ...editForm, room: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="input-group">
+                    <label>Home Address</label>
+                    <input
+                      className="input"
+                      placeholder="e.g. Faculty Housing"
+                      value={editForm.address}
+                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
+
               {/* STUDENT SPECIFIC FIELDS */}
-              {isStudent ? (
+              {!isTeacher && isStudent && (
                 <>
                   <div className="input-group">
                     <label>Grade & Section / Strand</label>
@@ -870,8 +936,10 @@ export default function ProfilePage() {
                     />
                   </div>
                 </>
-              ) : (
-                /* VENDOR SPECIFIC FIELDS */
+              )}
+
+              {/* VENDOR SPECIFIC FIELDS */}
+              {isVendor && (
                 <>
                   <div className="input-group">
                     <label>Canteen / Shop Name</label>

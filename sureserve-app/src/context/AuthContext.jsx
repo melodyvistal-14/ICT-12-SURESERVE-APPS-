@@ -25,11 +25,13 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = !!token;
   const isVendor = user?.role === 'Vendor';
+  const isTeacher = user?.role === 'Teacher';
   const isStudent = user?.role === 'Student';
+  const isCustomer = user?.role === 'Student' || user?.role === 'Teacher';
   const isAdmin = user?.role === 'Admin';
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated, isVendor, isStudent, isAdmin }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated, isVendor, isTeacher, isStudent, isCustomer, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
