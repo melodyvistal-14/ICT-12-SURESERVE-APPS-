@@ -186,7 +186,15 @@ public class OrdersController : ControllerBase
             }
         }
 
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Checkout SaveChanges Error] {ex.Message} | Inner: {ex.InnerException?.Message}");
+            return StatusCode(500, new { message = $"Order save failed: {ex.InnerException?.Message ?? ex.Message}" });
+        }
 
         // 1. Fetch vendor User IDs BEFORE the background task (fixes HttpContext disposed error)
         var vendorProfileIds = cartItems.Select(ci => ci.MenuItem.VendorProfileId).Distinct().ToList();

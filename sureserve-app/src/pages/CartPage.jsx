@@ -146,8 +146,14 @@ export default function CartPage() {
       });
       navigate('/order-confirmed', { state: res.data });
     } catch (err) {
-      setToast(err.response?.data?.message || 'Checkout failed');
-      setTimeout(() => setToast(''), 3000);
+      console.error('[Checkout] Error:', err.response?.status, err.response?.data, err.message);
+      const msg = err.response?.data?.message
+        || err.response?.data?.title
+        || (typeof err.response?.data === 'string' ? err.response.data.substring(0, 120) : null)
+        || err.message
+        || 'Checkout failed';
+      setToast(msg);
+      setTimeout(() => setToast(''), 5000);
     }
     setChecking(false);
   };
