@@ -183,6 +183,39 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"Migration notice: {ex.Message}");
+
+        // If Migrate() failed, try applying the missing columns directly (belt-and-suspenders)
+        if (dbContext.Database.GetDbConnection().GetType().Name == "NpgsqlConnection")
+        {
+            var safeAlters = new[]
+            {
+                "ALTER TABLE \"Orders\" ADD COLUMN IF NOT EXISTS \"Building\" varchar(100) NOT NULL DEFAULT '';",
+                "ALTER TABLE \"Orders\" ADD COLUMN IF NOT EXISTS \"DeliveryFee\" numeric(10,2) NOT NULL DEFAULT 0;",
+                "ALTER TABLE \"Orders\" ADD COLUMN IF NOT EXISTS \"DeliveryType\" varchar(20) NOT NULL DEFAULT 'Pickup';",
+                "ALTER TABLE \"Orders\" ADD COLUMN IF NOT EXISTS \"Room\" varchar(50) NOT NULL DEFAULT '';",
+                "ALTER TABLE \"Orders\" ADD COLUMN IF NOT EXISTS \"Section\" varchar(50) NOT NULL DEFAULT '';",
+                "ALTER TABLE \"StudentProfiles\" ADD COLUMN IF NOT EXISTS \"Section\" varchar(50) NOT NULL DEFAULT '';",
+                "CREATE TABLE IF NOT EXISTS \"TeacherProfiles\" (\"Id\" SERIAL PRIMARY KEY, \"UserId\" integer NOT NULL UNIQUE, \"TeacherId\" varchar(20) NOT NULL, \"Department\" varchar(100) NOT NULL DEFAULT '', \"Building\" varchar(100) NOT NULL DEFAULT '', \"Floor\" varchar(50) NOT NULL DEFAULT '', \"Room\" varchar(50) NOT NULL DEFAULT '', \"Section\" varchar(50) NOT NULL DEFAULT '', \"FirstName\" varchar(50) NOT NULL DEFAULT '', \"LastName\" varchar(50) NOT NULL DEFAULT '', \"Age\" integer NOT NULL DEFAULT 0, \"Birthday\" varchar(20) NOT NULL DEFAULT '', \"Address\" varchar(255) NOT NULL DEFAULT '', \"TeacherIdPhotoUrl\" varchar(500) NOT NULL DEFAULT '', CONSTRAINT \"FK_TeacherProfiles_Users_UserId\" FOREIGN KEY (\"UserId\") REFERENCES \"Users\" (\"Id\") ON DELETE CASCADE);",
+                "CREATE TABLE IF NOT EXISTS \"UserCancellationTrackings\" (\"Id\" SERIAL PRIMARY KEY, \"UserId\" integer NOT NULL UNIQUE, \"CancellationCount\" integer NOT NULL DEFAULT 0, \"BlockExpiryDate\" timestamp with time zone, \"LastResetDate\" timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT \"FK_UserCancellationTrackings_Users_UserId\" FOREIGN KEY (\"UserId\") REFERENCES \"Users\" (\"Id\") ON DELETE CASCADE);",
+                "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260913170104_AddTeacherProfileAndDeliveryFeatures', '8.0.0') ON CONFLICT DO NOTHING;"
+            };
+            var conn = dbContext.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open) conn.Open();
+            foreach (var sql in safeAlters)
+            {
+                try
+                {
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = sql;
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception altEx)
+                {
+                    Console.WriteLine($"Safe alter notice: {altEx.Message}");
+                }
+            }
+            conn.Close();
+        }
     }
     DbSeeder.Seed(dbContext);
 }

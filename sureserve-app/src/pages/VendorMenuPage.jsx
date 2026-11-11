@@ -7,9 +7,9 @@ export default function VendorMenuPage() {
   const [categories, setCategories] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', description: '', price: '', categoryId: 1, imageUrl: '', isSpecial: false, stock: 50 });
-  const [imageMode, setImageMode] = useState('upload');
+  const [imageMode, setImageMode] = useState('url');
   const [editingItem, setEditingItem] = useState(null);
-  const [editImageMode, setEditImageMode] = useState('upload');
+  const [editImageMode, setEditImageMode] = useState('url');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [toast, setToast] = useState('');
 
@@ -104,7 +104,7 @@ export default function VendorMenuPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800 }}>My Menu 🍔</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Manage your canteen food listings</p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)} style={{ gap: 4 }}>
+        <button className="btn btn-primary btn-sm" onClick={() => { setNewItem({ name: '', description: '', price: '', categoryId: 1, imageUrl: '', isSpecial: false, stock: 50 }); setImageMode('upload'); setShowAddModal(true); }} style={{ gap: 4 }}>
           <IoAdd size={18} /> Post Food
         </button>
       </div>
@@ -172,14 +172,22 @@ export default function VendorMenuPage() {
                   <div style={{ border: '2px dashed var(--border)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'center', background: 'var(--surface-hover)' }}>
                     <input type="file" id="food-photo-upload" accept="image/*" onChange={e => handleImageFileUpload(e, setNewItem)} style={{ display: 'none' }} />
                     <label htmlFor="food-photo-upload" style={{ cursor: 'pointer', margin: 0, display: 'block' }}>
-                      <div style={{ fontSize: 24 }}>📷</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Click to select photo</div>
+                      {newItem.imageUrl ? (
+                        <img src={newItem.imageUrl} alt="preview" style={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: 8 }} />
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 24 }}>📷</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Click to select photo</div>
+                        </>
+                      )}
                     </label>
                   </div>
                 ) : (
-                  <input className="input" placeholder="Paste Google Drive link or Image URL..." value={newItem.imageUrl} onChange={e => setNewItem({ ...newItem, imageUrl: convertGoogleDriveUrl(e.target.value) })} />
+                  <>
+                    <input className="input" placeholder="Paste Google Drive link or Image URL..." value={newItem.imageUrl} onChange={e => setNewItem({ ...newItem, imageUrl: convertGoogleDriveUrl(e.target.value) })} />
+                    {newItem.imageUrl && <div style={{ marginTop: 12 }}><img src={newItem.imageUrl} alt="preview" style={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 'var(--radius-md)' }} onError={e => e.target.style.display = 'none'} /></div>}
+                  </>
                 )}
-                {newItem.imageUrl && <div style={{ marginTop: 12 }}><img src={newItem.imageUrl} alt="preview" style={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 'var(--radius-md)' }} onError={e => e.target.style.display = 'none'} /></div>}
               </div>
               <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="checkbox" id="isSpecial" checked={newItem.isSpecial} onChange={e => setNewItem({ ...newItem, isSpecial: e.target.checked })} style={{ width: 18, height: 18 }} />
@@ -225,14 +233,23 @@ export default function VendorMenuPage() {
                   <div style={{ border: '2px dashed var(--border)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'center', background: 'var(--surface-hover)' }}>
                     <input type="file" id="edit-food-photo-upload" accept="image/*" onChange={e => handleImageFileUpload(e, setEditingItem)} style={{ display: 'none' }} />
                     <label htmlFor="edit-food-photo-upload" style={{ cursor: 'pointer', margin: 0, display: 'block' }}>
-                      <div style={{ fontSize: 24 }}>📷</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Click to change photo</div>
+                      {editingItem.imageUrl ? (
+                        <img src={editingItem.imageUrl} alt="Preview" style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: 8 }} />
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 24 }}>📷</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Click to change photo</div>
+                        </>
+                      )}
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Click to change photo</div>
                     </label>
                   </div>
                 ) : (
-                  <input className="input" placeholder="Paste Google Drive link or Image URL..." value={editingItem.imageUrl} onChange={e => setEditingItem({ ...editingItem, imageUrl: convertGoogleDriveUrl(e.target.value) })} />
+                  <>
+                    <input className="input" placeholder="Paste Google Drive link or Image URL..." value={editingItem.imageUrl} onChange={e => setEditingItem({ ...editingItem, imageUrl: convertGoogleDriveUrl(e.target.value) })} />
+                    {editingItem.imageUrl && <div style={{ marginTop: 12 }}><img src={editingItem.imageUrl} alt="Preview" style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 'var(--radius-md)' }} /></div>}
+                  </>
                 )}
-                {editingItem.imageUrl && <div style={{ marginTop: 12 }}><img src={editingItem.imageUrl} alt="Preview" style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 'var(--radius-md)' }} /></div>}
               </div>
               <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="checkbox" id="editIsSpecial" checked={editingItem.isSpecial} onChange={e => setEditingItem({ ...editingItem, isSpecial: e.target.checked })} style={{ width: 18, height: 18 }} />
