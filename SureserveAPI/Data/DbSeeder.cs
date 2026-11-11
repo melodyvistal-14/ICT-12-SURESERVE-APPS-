@@ -228,22 +228,22 @@ public static class DbSeeder
         if (!context.VendorPasskeys.Any())
         {
             context.VendorPasskeys.AddRange(
-                new VendorPasskey { Code = "SURESERVE-PASS-9081", Description = "For Stall 1 (Tia Mel's Canteen)", IsUsed = true, UsedByUsername = "demovendor" },
+                new VendorPasskey { Code = "SURESERVE-PASS-9081", Description = "For Stall 1 (Tia Mel's Canteen)", IsUsed = true, UsedByUsername = "vendor" },
                 new VendorPasskey { Code = "SURESERVE-PASS-4412", Description = "For Stall 2 (Snack Bar)", IsUsed = false },
                 new VendorPasskey { Code = "SURESERVE-PASS-7823", Description = "For Stall 3 (Beverage Corner)", IsUsed = false }
             );
             context.SaveChanges();
         }
 
-        // 3. Demo Vendor Account
-        var vendorUser = context.Users.Include(u => u.VendorProfile).FirstOrDefault(u => u.Username == "demovendor" || u.Role == "Vendor");
+        // 3. Primary Vendor Account
+        var vendorUser = context.Users.Include(u => u.VendorProfile).FirstOrDefault(u => u.Username == "vendor" || u.Role == "Vendor");
         if (vendorUser == null)
         {
             vendorUser = new User
             {
-                Username = "demovendor",
+                Username = "vendor",
                 Password = "vendor123",
-                FullName = "Tia Mel Demo",
+                FullName = "Tia Mel",
                 Role = "Vendor",
                 Email = "vendor@sureserve.edu",
                 ContactNumber = "0917-123-4567"
@@ -350,44 +350,17 @@ public static class DbSeeder
             context.SaveChanges();
         }
 
-        // 4. Demo Student Account (demostudent / student123)
-        var studentUser = context.Users.Include(u => u.StudentProfile).FirstOrDefault(u => u.Username == "demostudent");
-        if (studentUser == null)
+        // Clean up demo student and teacher accounts if they exist
+        var demoUsers = context.Users
+            .Where(u => u.Username == "demostudent" || u.Username == "demoteacher" || u.Username == "demovendor")
+            .ToList();
+        if (demoUsers.Any())
         {
-            studentUser = new User
-            {
-                Username = "demostudent",
-                Password = "student123",
-                FullName = "Demo Student",
-                Role = "Student",
-                Email = "demostudent@sureserve.edu",
-                ContactNumber = "0912-345-6789"
-            };
-            context.Users.Add(studentUser);
-            context.SaveChanges();
-
-            var studentProfile = new StudentProfile
-            {
-                UserId = studentUser.Id,
-                StudentId = "2026-DEMO",
-                GradeSection = "Grade 12 - STEM A",
-                Building = "Building A",
-                Floor = "2nd Floor",
-                Room = "Room 201",
-                Section = "STEM A",
-                FirstName = "Demo",
-                LastName = "Student",
-                Age = 18,
-                Birthday = "2008-01-01",
-                Strand = "STEM",
-                Address = "Campus Grounds",
-                StudentIdPhotoUrl = "" // Demo: ID verification bypassed
-            };
-            context.StudentProfiles.Add(studentProfile);
+            context.Users.RemoveRange(demoUsers);
             context.SaveChanges();
         }
 
-        // Also ensure legacy/simple 'student' user has a profile if it exists
+        // Ensure default student user has a profile if it exists
         var legacyStudent = context.Users.Include(u => u.StudentProfile).FirstOrDefault(u => u.Username == "student");
         if (legacyStudent != null && legacyStudent.StudentProfile == null)
         {
@@ -411,59 +384,11 @@ public static class DbSeeder
             context.SaveChanges();
         }
 
-        // 5. Demo Teacher Account (demoteacher / teacher123)
-        var teacherUser = context.Users.Include(u => u.TeacherProfile).FirstOrDefault(u => u.Username == "demoteacher");
-        if (teacherUser == null)
-        {
-            teacherUser = new User
-            {
-                Username = "demoteacher",
-                Password = "teacher123",
-                FullName = "Demo Teacher",
-                Role = "Teacher",
-                Email = "demoteacher@sureserve.edu",
-                ContactNumber = "0918-765-4321"
-            };
-            context.Users.Add(teacherUser);
-            context.SaveChanges();
-
-            var teacherProfile = new TeacherProfile
-            {
-                UserId = teacherUser.Id,
-                TeacherId = "T-DEMO",
-                Department = "Science Department",
-                Building = "Faculty Building",
-                Floor = "1st Floor",
-                Room = "Faculty Room 101",
-                Section = "Faculty",
-                FirstName = "Demo",
-                LastName = "Teacher",
-                Age = 35,
-                Birthday = "1991-01-01",
-                Address = "Faculty Housing",
-                TeacherIdPhotoUrl = "" // Demo: ID verification bypassed
-            };
-            context.TeacherProfiles.Add(teacherProfile);
-            context.SaveChanges();
-        }
-
-        // Also ensure simple 'teacher' alias account exists for convenience
+        // Ensure default teacher user has a profile if it exists
         var simpleTeacher = context.Users.Include(u => u.TeacherProfile).FirstOrDefault(u => u.Username == "teacher");
-        if (simpleTeacher == null)
+        if (simpleTeacher != null && simpleTeacher.TeacherProfile == null)
         {
-            simpleTeacher = new User
-            {
-                Username = "teacher",
-                Password = "teacher123",
-                FullName = "Maria Santos (Teacher)",
-                Role = "Teacher",
-                Email = "teacher@sureserve.edu",
-                ContactNumber = "0918-765-4322"
-            };
-            context.Users.Add(simpleTeacher);
-            context.SaveChanges();
-
-            var teacherProfile = new TeacherProfile
+            simpleTeacher.TeacherProfile = new TeacherProfile
             {
                 UserId = simpleTeacher.Id,
                 TeacherId = "EN-6452385",
@@ -479,7 +404,6 @@ public static class DbSeeder
                 Address = "Faculty Housing",
                 TeacherIdPhotoUrl = ""
             };
-            context.TeacherProfiles.Add(teacherProfile);
             context.SaveChanges();
         }
     }
